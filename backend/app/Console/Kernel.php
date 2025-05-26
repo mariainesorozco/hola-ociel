@@ -15,11 +15,35 @@ class Kernel extends ConsoleKernel
      */
     protected $commands = [
         Commands\DiagnoseOllama::class,
+        Commands\ScrapeWebContent::class,
+        Commands\IndexKnowledge::class,
+        Commands\ClearOcielCache::class,
+        Commands\OcielStatus::class,
+        Commands\UpdateEmbeddings::class,
     ];
 
     protected function schedule(Schedule $schedule)
     {
         // $schedule->command('inspire')->hourly();
+        // Scraping automático cada 6 horas
+        $schedule->command('ociel:scrape-web')
+            ->everySixHours()
+            ->withoutOverlapping()
+            ->runInBackground();
+
+        // Actualizar embeddings cada hora
+        $schedule->command('ociel:update-embeddings')
+            ->hourly()
+            ->withoutOverlapping();
+
+        // Limpiar cache viejo cada día
+        $schedule->command('ociel:clear-cache --type=knowledge')
+            ->dailyAt('02:00');
+
+        // Status check cada 15 minutos (para monitoreo)
+        $schedule->command('ociel:status --json')
+            ->everyFifteenMinutes()
+            ->appendOutputTo(storage_path('logs/ociel-health.log'));
     }
 
     /**

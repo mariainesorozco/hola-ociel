@@ -7,6 +7,7 @@ use GuzzleHttp\Exception\RequestException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class QdrantVectorService
 {
@@ -108,7 +109,7 @@ class QdrantVectorService
         $results = ['indexed' => 0, 'errors' => 0, 'updated' => 0];
 
         // Obtener todo el contenido activo
-        $knowledge = \DB::table('knowledge_base')
+        $knowledge = DB::table('knowledge_base')
             ->where('is_active', true)
             ->select(['id', 'title', 'content', 'category', 'department', 'keywords'])
             ->get();

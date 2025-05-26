@@ -112,7 +112,7 @@ class WebScrapingService
             if (strlen(trim($title->textContent)) > 10) {
                 $content[] = [
                     'type' => 'title',
-                    'level' => $title->tagName,
+                    'level' => $title->nodeName,
                     'text' => trim($title->textContent)
                 ];
             }

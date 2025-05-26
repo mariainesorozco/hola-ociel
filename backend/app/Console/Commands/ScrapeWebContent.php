@@ -4,6 +4,9 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\WebScrapingService;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class ScrapeWebContent extends Command
 {
@@ -30,8 +33,8 @@ class ScrapeWebContent extends Command
         $force = $this->option('force');
 
         // Verificar si se ejecutó recientemente (a menos que sea forzado)
-        if (!$force && \Cache::has('last_scraping')) {
-            $lastRun = \Cache::get('last_scraping');
+        if (!$force && Cache::has('last_scraping')) {
+            $lastRun = Cache::get('last_scraping');
             $this->warn("⚠️  Scraping ejecutado recientemente: {$lastRun}");
             $this->warn("   Usa --force para ejecutar de nuevo");
             return 1;
@@ -54,7 +57,7 @@ class ScrapeWebContent extends Command
             }
 
             // Actualizar cache
-            \Cache::put('last_scraping', now(), 86400);
+            Cache::put('last_scraping', now(), 86400);
 
             $this->newLine();
             $this->info('✅ Scraping completado exitosamente');
@@ -64,7 +67,7 @@ class ScrapeWebContent extends Command
 
         } catch (\Exception $e) {
             $this->error('❌ Error durante el scraping: ' . $e->getMessage());
-            \Log::error('Scraping command failed: ' . $e->getMessage());
+            Log::error('Scraping command failed: ' . $e->getMessage());
             return 1;
         }
 
@@ -116,7 +119,7 @@ class ScrapeWebContent extends Command
 
     private function showStatistics(): void
     {
-        $stats = \DB::table('knowledge_base')
+        $stats = DB::table('knowledge_base')
             ->selectRaw('
                 COUNT(*) as total,
                 COUNT(CASE WHEN created_by = "web_scraper" THEN 1 END) as scraped,
@@ -137,7 +140,7 @@ class ScrapeWebContent extends Command
         );
 
         // Mostrar distribución por categorías
-        $categories = \DB::table('knowledge_base')
+        $categories = DB::table('knowledge_base')
             ->selectRaw('category, COUNT(*) as count')
             ->where('is_active', true)
             ->groupBy('category')

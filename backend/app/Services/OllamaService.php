@@ -163,11 +163,81 @@ class OllamaService
         $useSecondaryModel = $this->isSimpleQuery($userMessage);
         $model = $useSecondaryModel ? $this->secondaryModel : $this->primaryModel;
 
-        return $this->generateResponse($fullPrompt, [
+        $response = $this->generateResponse($fullPrompt, [
             'model' => $model,
             'temperature' => 0.7,
-            'max_tokens' => 800
+            'max_tokens' => 1200 // Incrementado para respuestas más detalladas
         ]);
+
+        // Aplicar mejoras de formato a la respuesta
+        if ($response['success'] && !empty($response['response'])) {
+            $response['response'] = $this->enhanceResponseFormat($response['response']);
+
+            // Agregar información de contacto específica si no está presente
+            $response['response'] = $this->ensureContactInfo($response['response'], $department, $userType);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Asegurar que la respuesta incluya información de contacto relevante
+     */
+    private function ensureContactInfo(string $response, ?string $department, string $userType): string
+    {
+        // Si ya contiene información de contacto, no agregar más
+        if (preg_match('/📞|teléfono|tel:|email|contacto/i', $response)) {
+            return $response;
+        }
+
+        // Agregar información de contacto según el departamento
+        $contactInfo = $this->getContactInfoByDepartment($department);
+
+        if ($contactInfo) {
+            $response .= "\n\n📞 **Más información:**\n";
+            $response .= $contactInfo;
+        }
+
+        return $response;
+    }
+
+    /**
+     * Obtener información de contacto específica por departamento
+     */
+    private function getContactInfoByDepartment(?string $department): string
+    {
+        $contacts = [
+            'DGAE' => "📞 DGAE: 311-211-8800 ext. 8530\n📧 dgae@uan.edu.mx",
+            'UAM' => "📞 Medicina: 311-211-8800 ext. 8630\n📧 direccion.medicina@uan.edu.mx",
+            'UACBI' => "📞 Ingenierías: 311-211-8800 ext. 8600\n📧 direccion@uan.edu.mx",
+            'UACS' => "📞 Ciencias Sociales: 311-211-8800 ext. 8610\n📧 direccion.cs@uan.edu.mx",
+            'DGS' => "📞 Sistemas: 311-211-8800 ext. 8540\n📧 dgs@uan.edu.mx"
+        ];
+
+        return $contacts[$department] ?? "📞 Información general: 311-211-8800\n🌐 www.uan.edu.mx";
+    }
+
+    /**
+     * Determinar si una consulta es compleja y requiere respuesta detallada
+     */
+    private function isComplexQuery(string $message): bool
+    {
+        $complexIndicators = [
+            'plan de estudios', 'requisitos', 'proceso de', 'cómo puedo',
+            'información detallada', 'explicame', 'diferencia entre',
+            'comparar', 'ventajas', 'desventajas', 'modalidades'
+        ];
+
+        $messageLower = strtolower($message);
+
+        foreach ($complexIndicators as $indicator) {
+            if (str_contains($messageLower, $indicator)) {
+                return true;
+            }
+        }
+
+        // Si el mensaje es largo (más de 15 palabras), probablemente es complejo
+        return str_word_count($message) > 15;
     }
 
     /**
@@ -192,16 +262,74 @@ class OllamaService
             }
         }
 
-        $prompt .= "\nINSTRUCCIONES:\n";
-        $prompt .= "- Responde en español de manera amigable y profesional\n";
-        $prompt .= "- Sé conciso pero informativo\n";
+        $prompt .= "\nFORMATO DE RESPUESTA REQUERIDO:\n";
+        $prompt .= "- Usa una estructura clara con títulos y subtítulos\n";
+        $prompt .= "- Incluye emojis relevantes al inicio de cada sección (🎓 📋 📞 etc.)\n";
+        $prompt .= "- Organiza la información en listas cuando sea apropiado\n";
+        $prompt .= "- Resalta datos importantes como duración, costos, fechas\n";
+        $prompt .= "- Siempre incluye información de contacto específica al final\n";
+        $prompt .= "- Usa un tono amigable pero profesional\n\n";
+
+        $prompt .= "INSTRUCCIONES ESPECÍFICAS:\n";
+        $prompt .= "- Responde en español de manera estructurada y organizada\n";
+        $prompt .= "- Sé conciso pero completo en la información\n";
         $prompt .= "- Si no tienes información específica, indica cómo pueden obtener ayuda\n";
-        $prompt .= "- Proporciona datos de contacto cuando sea relevante\n";
+        $prompt .= "- Proporciona datos de contacto relevantes\n";
         $prompt .= "- Mantén un tono conversacional pero académico\n";
         $prompt .= "- Si la consulta requiere atención especializada, dirige al departamento correcto\n";
-        $prompt .= "- Usa emojis apropiados ocasionalmente para hacer la conversación más amigable\n\n";
+        $prompt .= "- Estructura las respuestas con subtítulos claros\n\n";
+
+        // Agregar plantillas de respuesta según el tipo de consulta
+        $prompt .= "PLANTILLAS DE RESPUESTA:\n\n";
+
+        $prompt .= "Para CARRERAS/PROGRAMAS ACADÉMICOS:\n";
+        $prompt .= "🎓 [Nombre de la Carrera] - UAN\n";
+        $prompt .= "📋 Información general:\n";
+        $prompt .= "• Duración: [X años/semestres]\n";
+        $prompt .= "• Modalidad: [Presencial/Virtual/Mixta]\n";
+        $prompt .= "• Ubicación: [Campus/Sede]\n";
+        $prompt .= "📚 Plan de estudios: [descripción breve]\n";
+        $prompt .= "🎯 Campo laboral: [áreas de trabajo]\n";
+        $prompt .= "📞 Contacto: [información específica]\n\n";
+
+        $prompt .= "Para TRÁMITES/SERVICIOS:\n";
+        $prompt .= "📝 [Nombre del Trámite]\n";
+        $prompt .= "📋 Requisitos:\n";
+        $prompt .= "• [Listar requisitos]\n";
+        $prompt .= "⏰ Proceso:\n";
+        $prompt .= "• [Pasos a seguir]\n";
+        $prompt .= "📍 Ubicación: [dónde realizar el trámite]\n";
+        $prompt .= "📞 Más información: [contacto específico]\n\n";
+
+        $prompt .= "Para INFORMACIÓN GENERAL:\n";
+        $prompt .= "🏛️ Universidad Autónoma de Nayarit\n";
+        $prompt .= "[Información solicitada organizadamente]\n";
+        $prompt .= "📞 Contacto general: 311-211-8800\n\n";
 
         return $prompt;
+    }
+
+    // Método adicional para post-procesar respuestas y mejorar formato
+    private function enhanceResponseFormat(string $response): string
+    {
+        // Mejorar la estructura de las respuestas generadas
+        $enhanced = $response;
+
+        // Asegurar que hay emojis al inicio de títulos principales
+        $enhanced = preg_replace('/^([A-ZÁÉÍÓÚ][^:\n]*):?$/m', '🎯 $1:', $enhanced);
+
+        // Mejorar formato de listas
+        $enhanced = preg_replace('/^[\*\-]\s+(.+)$/m', '• $1', $enhanced);
+
+        // Resaltar información importante (números, fechas, etc.)
+        $enhanced = preg_replace('/(\d+\s*(años?|meses?|semestres?))/i', '**$1**', $enhanced);
+        $enhanced = preg_replace('/(\$[\d,]+)/i', '**$1**', $enhanced);
+
+        // Mejorar información de contacto
+        $enhanced = preg_replace('/(Tel(?:éfono)?:?\s*)([\d\-\s\(\)ext\.]+)/i', '📞 $2', $enhanced);
+        $enhanced = preg_replace('/(Email:?\s*)([\w\.\-]+@[\w\.\-]+)/i', '📧 $2', $enhanced);
+
+        return $enhanced;
     }
 
     /**

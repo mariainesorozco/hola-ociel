@@ -129,7 +129,7 @@
         .message {
             margin-bottom: 20px;
             display: flex;
-            align-items: flex-end;
+            align-items: flex-start;
             gap: 10px;
             animation: fadeInUp 0.3s ease-out;
         }
@@ -154,7 +154,7 @@
             padding: 12px 16px;
             border-radius: 18px;
             word-wrap: break-word;
-            line-height: 1.4;
+            line-height: 1.5;
         }
 
         .message.user .message-content {
@@ -169,6 +169,138 @@
             border: 1px solid #e5e7eb;
             border-bottom-left-radius: 6px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* NUEVOS ESTILOS PARA MEJORAR MENSAJES DE OCIEL */
+        .message.ociel .message-content h3 {
+            color: #1e40af;
+            font-size: 16px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .message.ociel .message-content h4 {
+            color: #1d4ed8;
+            font-size: 14px;
+            margin: 12px 0 6px 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .message.ociel .message-content p {
+            margin-bottom: 8px;
+            color: #374151;
+            line-height: 1.5;
+        }
+
+        .message.ociel .message-content ul {
+            margin: 8px 0;
+            padding-left: 20px;
+            list-style-type: disc;
+        }
+
+        .message.ociel .message-content li {
+            margin-bottom: 4px;
+            color: #4b5563;
+            line-height: 1.4;
+        }
+
+        .message.ociel .message-content .highlight {
+            background: linear-gradient(120deg, #fef3c7 0%, #fde68a 100%);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+            color: #92400e;
+        }
+
+        .message.ociel .message-content strong {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .message.ociel .message-content .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .message.ociel .message-content .contact-info {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 13px;
+        }
+
+        .message.ociel .message-content .contact-info .contact-title {
+            font-weight: 600;
+            color: #166534;
+            margin-bottom: 6px;
+        }
+
+        .message.ociel .message-content .program-duration {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+            margin: 2px 4px 2px 0;
+            vertical-align: baseline;
+            white-space: nowrap;
+        }
+
+        /* Prevenir duplicación de badges */
+        .message.ociel .message-content .program-duration .program-duration {
+            background: none;
+            padding: 0;
+            margin: 0;
+            border-radius: 0;
+            font-size: inherit;
+            font-weight: inherit;
+            color: inherit;
+            display: inline;
+        }
+
+        /* Estilos para evitar solapamiento */
+        .message.ociel .message-content li {
+            margin-bottom: 4px;
+            color: #4b5563;
+            line-height: 1.6;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .message.ociel .message-content .subjects-list {
+            background: #fafafa;
+            border-radius: 6px;
+            padding: 10px;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        /* Estilos especiales para categorías de carreras */
+        .message.ociel .message-content .career-category {
+            background: #f0f9ff;
+            border-left: 3px solid #0ea5e9;
+            padding: 8px 12px;
+            margin: 8px 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .message.ociel .message-content .career-category h5 {
+            color: #0369a1;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
 
         .message-avatar {
@@ -187,13 +319,6 @@
 
         .message.user .message-avatar {
             background: linear-gradient(135deg, #667eea, #764ba2);
-        }
-
-        .message-time {
-            font-size: 10px;
-            color: #9ca3af;
-            margin-top: 4px;
-            text-align: center;
         }
 
         .typing-indicator {
@@ -333,20 +458,11 @@
             box-shadow: 0 8px 24px rgba(251, 191, 36, 0.3);
         }
 
-        .error-message {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 12px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-size: 12px;
-        }
-
         .confidence-indicator {
             font-size: 10px;
             color: #9ca3af;
-            margin-top: 4px;
+            margin-top: 8px;
+            text-align: right;
         }
 
         .high-confidence { color: #10b981; }
@@ -516,7 +632,7 @@
 
                 if (data.success) {
                     sessionId = data.data.session_id;
-                    addMessage(data.data.response, 'ociel', data.data.confidence);
+                    addFormattedMessage(data.data.response, 'ociel', data.data.confidence);
 
                     // Agregar información de contacto si es relevante
                     if (data.data.contact_info && data.data.requires_human_follow_up) {
@@ -542,12 +658,6 @@
         function addMessage(text, sender, confidence = null) {
             const messagesContainer = document.getElementById('chatMessages');
 
-            // Remover mensaje de bienvenida si existe
-            const welcomeMessage = messagesContainer.querySelector('.welcome-message');
-            if (welcomeMessage) {
-                welcomeMessage.remove();
-            }
-
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
 
@@ -569,10 +679,12 @@
 
                 if (confidence >= 0.8) {
                     confidenceClass = 'high-confidence';
-                    confidenceText = 'Alta confianza';
+                    confidenceText = '✓ Alta confianza';
                 } else if (confidence >= 0.6) {
                     confidenceClass = 'medium-confidence';
-                    confidenceText = 'Confianza media';
+                    confidenceText = '~ Confianza media';
+                } else {
+                    confidenceText = '⚠ Baja confianza';
                 }
 
                 confidenceDiv.className += ` ${confidenceClass}`;
@@ -587,6 +699,99 @@
             scrollToBottom();
         }
 
+        function addFormattedMessage(text, sender, confidence = null) {
+            const messagesContainer = document.getElementById('chatMessages');
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'message-avatar';
+            avatar.textContent = sender === 'user' ? 'Tú' : 'O';
+
+            const content = document.createElement('div');
+            content.className = 'message-content';
+
+            // Aplicar formato mejorado al texto
+            content.innerHTML = formatOcielResponse(text);
+
+            // Agregar indicador de confianza
+            if (sender === 'ociel' && confidence !== null) {
+                const confidenceDiv = document.createElement('div');
+                confidenceDiv.className = 'confidence-indicator';
+
+                let confidenceClass = 'low-confidence';
+                let confidenceText = 'Baja confianza';
+
+                if (confidence >= 0.8) {
+                    confidenceClass = 'high-confidence';
+                    confidenceText = '✓ Alta confianza';
+                } else if (confidence >= 0.6) {
+                    confidenceClass = 'medium-confidence';
+                    confidenceText = '~ Confianza media';
+                } else {
+                    confidenceText = '⚠ Baja confianza';
+                }
+
+                confidenceDiv.className += ` ${confidenceClass}`;
+                confidenceDiv.textContent = `${confidenceText} (${Math.round(confidence * 100)}%)`;
+                content.appendChild(confidenceDiv);
+            }
+
+            messageDiv.appendChild(avatar);
+            messageDiv.appendChild(content);
+
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function formatOcielResponse(text) {
+            // Aplicar formato automático al texto de respuesta
+            let formatted = text;
+
+            // Primero, proteger los saltos de línea que NO deben ser listas
+            formatted = formatted.replace(/\n\n/g, '||PARAGRAPH_BREAK||');
+
+            // Solo convertir líneas que REALMENTE empiecen con marcadores de lista
+            formatted = formatted.replace(/^[\*\-\•]\s+(.+)$/gm, '<li>$1</li>');
+
+            // Agrupar elementos <li> consecutivos en <ul>
+            formatted = formatted.replace(/(<li>.*<\/li>)/gs, function(match) {
+                // Si ya hay múltiples <li>, envolverlos en <ul>
+                if (match.includes('</li><li>') || match.split('<li>').length > 2) {
+                    return '<ul>' + match + '</ul>';
+                }
+                return '<ul>' + match + '</ul>';
+            });
+
+            // Restaurar los saltos de párrafo
+            formatted = formatted.replace(/\|\|PARAGRAPH_BREAK\|\|/g, '</p><p>');
+
+            // Resaltar información importante
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<span class="highlight">$1</span>');
+
+            // Formatear duraciones y números importantes
+            formatted = formatted.replace(/(\d+\s*(años?|meses?|semestres?))/gi, '<span class="program-duration">$1</span>');
+
+            // Formatear títulos que empiecen con emoji y **
+            formatted = formatted.replace(/^(🏥|🎓|📋|📞|💻|📚|👋|📝)\s*\*\*(.*?)\*\*/gm, '<h3>$1 $2</h3>');
+
+            // Formatear subtítulos
+            formatted = formatted.replace(/^(📋|🎯|📚|⏰|📍)\s*(.+):/gm, '<h4>$1 $2:</h4>');
+
+            // Envolver en párrafos, pero evitar párrafos vacíos
+            if (!formatted.includes('<h3>') && !formatted.includes('<ul>')) {
+                formatted = '<p>' + formatted + '</p>';
+            }
+
+            // Limpiar párrafos vacíos y elementos mal formados
+            formatted = formatted.replace(/<p>\s*<\/p>/g, '');
+            formatted = formatted.replace(/<p>\s*<ul>/g, '<ul>');
+            formatted = formatted.replace(/<\/ul>\s*<\/p>/g, '</ul>');
+
+            return formatted;
+        }
+
         function addContactInfo(contactInfo) {
             const messagesContainer = document.getElementById('chatMessages');
 
@@ -595,10 +800,12 @@
             contactDiv.innerHTML = `
                 <div class="message-avatar">📞</div>
                 <div class="message-content">
-                    <strong>Información de contacto:</strong><br>
-                    📞 ${contactInfo.phone}<br>
-                    📧 ${contactInfo.email}<br>
-                    🌐 ${contactInfo.website || 'https://www.uan.edu.mx'}
+                    <div class="contact-info">
+                        <div class="contact-title">📞 Información de contacto:</div>
+                        📞 ${contactInfo.phone}<br>
+                        📧 ${contactInfo.email}<br>
+                        🌐 ${contactInfo.website || 'https://www.uan.edu.mx'}
+                    </div>
                 </div>
             `;
 
@@ -622,14 +829,6 @@
         function scrollToBottom() {
             const messagesContainer = document.getElementById('chatMessages');
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        // Funciones de utilidad
-        function formatTime(date) {
-            return date.toLocaleTimeString('es-ES', {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
         }
 
         // Manejar errores de red

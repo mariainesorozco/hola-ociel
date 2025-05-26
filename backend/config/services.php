@@ -36,5 +36,11 @@ return [
         'embedding_model' => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
         'timeout' => env('OLLAMA_TIMEOUT', 60),
     ],
-
+    'qdrant' => [
+        'url' => env('QDRANT_URL', 'http://localhost:6333'),
+        'collection' => env('QDRANT_COLLECTION', 'uan_knowledge'),
+        'vector_size' => env('QDRANT_VECTOR_SIZE', 768), // Para nomic-embed-text
+        'timeout' => env('QDRANT_TIMEOUT', 30),
+        'retry_attempts' => env('QDRANT_RETRY_ATTEMPTS', 3),
+    ],
 ];
