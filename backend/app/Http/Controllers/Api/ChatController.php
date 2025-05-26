@@ -23,14 +23,24 @@ class ChatController extends Controller
         $this->knowledgeService = $knowledgeService;
     }
 
+    class ChatController extends Controller
+{
+    private $ollamaService;
+    private $knowledgeService;
+
+    public function __construct(OllamaService $ollamaService, KnowledgeBaseService $knowledgeService)
+    {
+        $this->ollamaService = $ollamaService;
+        $this->knowledgeService = $knowledgeService;
+    }
+
     /**
-     * Endpoint principal de chat con Ociel
+     * Endpoint principal de chat con Ociel - VERSIÓN MEJORADA
      */
     public function chat(Request $request): JsonResponse
     {
         $startTime = microtime(true);
 
-        // Validar la entrada
         $validator = Validator::make($request->all(), [
             'message' => 'required|string|max:1000',
             'user_type' => 'in:student,employee,public',
@@ -53,63 +63,138 @@ class ChatController extends Controller
         $sessionId = $validated['session_id'] ?? Str::uuid();
 
         try {
-            // 1. Buscar información relevante en la base de conocimientos (simplificado)
-            $context = $this->searchKnowledgeSimple($message, $userType, $department);
+            // 1. BÚSQUEDA INTELIGENTE EN KNOWLEDGE BASE
+            $context = $this->knowledgeService->searchRelevantContent($message, $userType, $department);
 
-            // 2. Generar respuesta - Probar primero sin Ollama
-            $response = $this->generateSimpleResponse($message, $context, $userType);
-            $modelUsed = 'knowledge_base';
-            $confidence = 0.8;
+            // 2. GENERAR RESPUESTA CON IA USANDO CONTEXTO
+            $response = $this->generateIntelligentResponse($message, $context, $userType, $department);
+
+            // 3. CALCULAR CONFIANZA
+            $confidence = $this->calculateResponseConfidence($context, $response);
+
+            // 4. DETERMINAR SI REQUIERE ESCALACIÓN HUMANA
+            $requiresHumanFollowUp = $this->shouldEscalateToHuman($message, $confidence, $context);
+
             $responseTime = round((microtime(true) - $startTime) * 1000);
 
-            // 3. Registrar la interacción (simplificado)
-            $this->logChatInteractionSimple([
+            // 5. REGISTRAR INTERACCIÓN
+            $this->logChatInteraction([
                 'session_id' => $sessionId,
                 'user_type' => $userType,
                 'department' => $department,
                 'message' => $message,
-                'response' => $response,
+                'response' => $response['response'],
                 'confidence' => $confidence,
-                'model_used' => $modelUsed,
+                'model_used' => $response['model'],
                 'response_time' => $responseTime,
                 'ip_address' => $request->ip(),
-                'channel' => 'web'
+                'channel' => 'web',
+                'context_used' => json_encode(array_slice($context, 0, 3)),
+                'requires_human_follow_up' => $requiresHumanFollowUp
             ]);
 
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'response' => $response,
+                    'response' => $response['response'],
                     'session_id' => $sessionId,
                     'confidence' => $confidence,
-                    'model_used' => $modelUsed,
+                    'model_used' => $response['model'],
                     'response_time' => $responseTime,
-                    'requires_human_follow_up' => false,
-                    'contact_info' => $this->getRelevantContactInfo($department, $context)
+                    'requires_human_follow_up' => $requiresHumanFollowUp,
+                    'contact_info' => $this->getRelevantContactInfo($department, $context),
+                    'suggested_actions' => $this->getSuggestedActions($message, $department, $context)
                 ],
                 'timestamp' => now()->toISOString()
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Chat error: ' . $e->getMessage(), [
+            Log::error('Chat error: ' . $e->getMessage(), [
                 'message' => $message,
                 'user_type' => $userType,
                 'stack' => $e->getTraceAsString()
             ]);
 
+            // FALLBACK CON KNOWLEDGE BASE SIN IA
+            $fallbackResponse = $this->getFallbackResponse($message, $context ?? []);
+
             return response()->json([
                 'success' => false,
-                'error' => 'Error interno del servidor',
-                'error_details' => $e->getMessage(), // Temporal para debug
+                'error' => 'Error procesando solicitud',
                 'data' => [
-                    'response' => 'Disculpa, estoy experimentando dificultades técnicas. Por favor, intenta de nuevo en unos momentos.',
+                    'response' => $fallbackResponse,
                     'session_id' => $sessionId,
-                    'confidence' => 0.0,
+                    'confidence' => 0.3,
+                    'model_used' => 'fallback',
+                    'response_time' => round((microtime(true) - $startTime) * 1000),
                     'requires_human_follow_up' => true
                 ]
-            ], 500);
+            ], 200); // 200 para que el frontend maneje la respuesta fallback
         }
     }
+
+    /**
+     * GENERAR RESPUESTA INTELIGENTE CON IA + CONTEXTO
+     */
+    private function generateIntelligentResponse(string $message, array $context, string $userType, ?string $department): array
+    {
+        // Verificar si Ollama está disponible
+        if (!$this->ollamaService->isHealthy()) {
+            throw new \Exception('IA no disponible');
+        }
+
+        // Si no hay contexto relevante, usar respuesta directa con IA
+        if (empty($context)) {
+            return $this->ollamaService->generateOcielResponse(
+                $message,
+                $this->getGeneralUANContext(),
+                $userType,
+                $department
+            );
+        }
+
+        // Generar respuesta con contexto específico de la base de conocimientos
+        return $this->ollamaService->generateOcielResponse($message, $context, $userType, $department);
+    }
+
+    /**
+     * OBTENER CONTEXTO GENERAL DE LA UAN CUANDO NO HAY RESULTADOS ESPECÍFICOS
+     */
+    private function getGeneralUANContext(): array
+    {
+        return [
+            "La Universidad Autónoma de Nayarit (UAN) es una institución pública de educación superior fundada en 1969, ubicada en Tepic, Nayarit.",
+            "Ofrece más de 40 programas de licenciatura, 25 maestrías y 8 doctorados en diversas áreas del conocimiento.",
+            "Teléfono principal: 311-211-8800. Sitio web: https://www.uan.edu.mx",
+            "Servicios principales: biblioteca, laboratorios, centro de cómputo, servicios médicos, actividades culturales y deportivas."
+        ];
+    }
+
+    /**
+     * CALCULAR CONFIANZA DE LA RESPUESTA
+     */
+    private function calculateResponseConfidence(array $context, array $aiResponse): float
+    {
+        $confidence = 0.4; // Base mínima
+
+        // Bonus por contexto relevante encontrado
+        if (!empty($context)) {
+            $confidence += 0.3 * min(count($context) / 3, 1); // Max 0.3 bonus
+        }
+
+        // Bonus por éxito de la IA
+        if (isset($aiResponse['success']) && $aiResponse['success']) {
+            $confidence += 0.2;
+        }
+
+        // Penalty por respuesta muy corta (posible error)
+        if (isset($aiResponse['response']) && strlen($aiResponse['response']) < 50) {
+            $confidence -= 0.1;
+        }
+
+        return max(0.0, min(1.0, $confidence));
+    }
+
 
     /**
      * Búsqueda simplificada en knowledge base
@@ -278,27 +363,31 @@ class ChatController extends Controller
 
     // ===== MÉTODOS PRIVADOS =====
 
+     /**
+     * RESPUESTA FALLBACK SIN IA
+     */
     private function getFallbackResponse(string $message, array $context): string
     {
-        // Respuestas predeterminadas si la IA no está disponible
-        $responses = [
-            'general' => 'Gracias por contactar a la UAN. Para obtener información específica, puedes llamar al 311-211-8800 o visitar nuestro sitio web https://www.uan.edu.mx',
-            'tramites' => 'Para información sobre trámites, contacta a la Dirección General de Servicios Académicos al 311-211-8800 ext. 8530.',
-            'sistemas' => 'Para soporte técnico, contacta a la Dirección General de Sistemas al 311-211-8800 ext. 8540.'
-        ];
-
-        // Intentar detectar el tipo de consulta
-        $message = strtolower($message);
-
-        if (str_contains($message, 'trámite') || str_contains($message, 'inscripción') || str_contains($message, 'titulación')) {
-            return $responses['tramites'];
+        // Si hay contexto, usarlo
+        if (!empty($context)) {
+            return "📋 Basado en tu consulta, encontré esta información: " .
+                   substr($context[0], 0, 300) .
+                   "...\n\nPara más detalles, contacta al 311-211-8800 o visita https://www.uan.edu.mx";
         }
 
-        if (str_contains($message, 'sistema') || str_contains($message, 'correo') || str_contains($message, 'plataforma')) {
-            return $responses['sistemas'];
+        // Respuestas específicas por palabras clave
+        $messageLower = strtolower($message);
+
+        if (str_contains($messageLower, 'carrera') || str_contains($messageLower, 'licenciatura')) {
+            return "🎓 La UAN ofrece más de 40 programas de licenciatura en diversas áreas. Para información detallada, contacta al 311-211-8800 o visita https://www.uan.edu.mx/oferta-educativa";
         }
 
-        return $responses['general'];
+        if (str_contains($messageLower, 'inscripción') || str_contains($messageLower, 'admisión')) {
+            return "📝 Para inscribirte necesitas certificado de bachillerato y aprobar el examen de admisión. Contacta a la DGSA al 311-211-8800 ext. 8530.";
+        }
+
+        // Respuesta general
+        return "👋 Gracias por contactar a la UAN. Para obtener información específica sobre tu consulta, puedes llamar al 311-211-8800 o visitar https://www.uan.edu.mx. También puedes contactar directamente a la dependencia correspondiente.";
     }
 
     private function calculateConfidence(array $context, array $aiResponse): float
@@ -318,37 +407,62 @@ class ChatController extends Controller
         return min(1.0, $confidence);
     }
 
+    /**
+     * DETERMINAR SI REQUIERE ESCALACIÓN HUMANA
+     */
     private function shouldEscalateToHuman(string $message, float $confidence, array $context): bool
     {
-        // Escalar si la confianza es muy baja
-        if ($confidence < 0.6) {
+        // Confianza muy baja
+        if ($confidence < 0.5) {
             return true;
         }
 
-        // Escalar para ciertos tipos de consultas
-        $escalationKeywords = ['queja', 'problema urgente', 'director', 'rector', 'emergencia'];
+        // Palabras clave que requieren atención humana
+        $escalationKeywords = [
+            'queja', 'problema', 'error', 'falla', 'reclamo', 'molesto', 'enojado',
+            'director', 'rector', 'secretario', 'urgente', 'emergencia',
+            'demanda', 'legal', 'abogado', 'tribunal'
+        ];
 
+        $messageLower = strtolower($message);
         foreach ($escalationKeywords as $keyword) {
-            if (str_contains(strtolower($message), $keyword)) {
+            if (str_contains($messageLower, $keyword)) {
                 return true;
             }
+        }
+
+        // Sin contexto relevante para preguntas específicas
+        if (empty($context) && strlen($message) > 50) {
+            return true;
         }
 
         return false;
     }
 
+   /**
+     * OBTENER ACCIONES SUGERIDAS
+     */
     private function getSuggestedActions(string $message, ?string $department, array $context): array
     {
         $actions = [];
+        $messageLower = strtolower($message);
 
-        if (str_contains(strtolower($message), 'inscripción')) {
-            $actions[] = 'Revisar requisitos de admisión';
-            $actions[] = 'Contactar a DGSA para más información';
+        if (str_contains($messageLower, 'inscripción')) {
+            $actions[] = 'Revisar requisitos de admisión en el sitio web';
+            $actions[] = 'Contactar a DGSA para información específica';
+            $actions[] = 'Verificar fechas de convocatoria';
         }
 
-        if (str_contains(strtolower($message), 'carrera')) {
+        if (str_contains($messageLower, 'carrera')) {
             $actions[] = 'Explorar oferta educativa completa';
-            $actions[] = 'Agendar cita con orientación vocacional';
+            $actions[] = 'Solicitar orientación vocacional';
+            $actions[] = 'Visitar la unidad académica de interés';
+        }
+
+        if (str_contains($messageLower, 'sistema') || str_contains($messageLower, 'plataforma')) {
+            $actions[] = 'Contactar a la Dirección General de Sistemas';
+            $actions[] = 'Verificar credenciales de acceso';
+            $actions[] = 'Consultar guías de usuario disponibles';
         }
 
         return $actions;

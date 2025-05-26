@@ -10,10 +10,12 @@ use Illuminate\Support\Collection;
 class KnowledgeBaseService
 {
     private $ollamaService;
+    private $vectorService;
 
-    public function __construct(OllamaService $ollamaService)
+    public function __construct(OllamaService $ollamaService, QdrantVectorService $vectorService = null)
     {
         $this->ollamaService = $ollamaService;
+        $this->vectorService = $vectorService;
     }
 
     /**
