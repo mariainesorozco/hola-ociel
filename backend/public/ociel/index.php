@@ -171,7 +171,20 @@
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
 
-        /* NUEVOS ESTILOS PARA MEJORAR MENSAJES DE OCIEL */
+        .message.ociel .message-content .info-box {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+            padding: 12px;
+            margin: 12px 0;
+            border-radius: 0 6px 6px 0;
+            font-size: 14px;
+        }
+
+        .message.ociel .message-content .info-box strong {
+            color: #1e40af;
+            font-weight: 600;
+        }
+
         .message.ociel .message-content h3 {
             color: #1e40af;
             font-size: 16px;
@@ -181,12 +194,11 @@
 
         .message.ociel .message-content h4 {
             color: #1d4ed8;
-            font-size: 14px;
-            margin: 12px 0 6px 0;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+            font-size: 15px;
+            margin: 15px 0 8px 0;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .message.ociel .message-content p {
@@ -196,15 +208,35 @@
         }
 
         .message.ociel .message-content ul {
-            margin: 8px 0;
+            margin: 12px 0;
             padding-left: 20px;
-            list-style-type: disc;
+            list-style-type: none;
         }
 
         .message.ociel .message-content li {
-            margin-bottom: 4px;
-            color: #4b5563;
-            line-height: 1.4;
+            margin-bottom: 6px;
+            line-height: 1.5;
+            position: relative;
+            padding-left: 8px;
+        }
+
+        .message.ociel .message-content li:before {
+            content: "•";
+            color: #3b82f6;
+            font-weight: bold;
+            position: absolute;
+            left: -12px;
+        }
+
+        .message.ociel .message-content .contact-info {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 8px 0;
+            font-size: 13px;
+            color: #166534;
+            font-weight: 500;
         }
 
         .message.ociel .message-content .highlight {
@@ -615,40 +647,132 @@
             // Mostrar indicador de escritura
             showTypingIndicator();
 
-            try {
-                const response = await fetch(`${API_BASE_URL}/chat`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        message: message,
-                        user_type: 'student',
-                        session_id: sessionId
-                    })
-                });
+            let retryCount = 0;
+            const maxRetries = 3;
+            const retryDelay = 2000; // 2 segundos
 
-                const data = await response.json();
+            while (retryCount < maxRetries) {
+                try {
+                    console.log(`Intento ${retryCount + 1} de ${maxRetries}`);
 
-                if (data.success) {
-                    sessionId = data.data.session_id;
-                    addFormattedMessage(data.data.response, 'ociel', data.data.confidence);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos timeout
 
-                    // Agregar información de contacto si es relevante
-                    if (data.data.contact_info && data.data.requires_human_follow_up) {
-                        addContactInfo(data.data.contact_info);
+                    const response = await fetch(`${API_BASE_URL}/chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            message: message,
+                            user_type: 'student',
+                            session_id: sessionId
+                        }),
+                        signal: controller.signal
+                    });
+
+                    clearTimeout(timeoutId);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
-                } else {
-                    addMessage('Lo siento, hubo un problema procesando tu mensaje. Por favor intenta de nuevo.', 'ociel', 0);
-                }
 
-            } catch (error) {
-                console.error('Error:', error);
-                addMessage('Parece que hay un problema de conexión. Por favor, verifica tu conexión a internet e intenta de nuevo.', 'ociel', 0);
-            } finally {
-                hideTypingIndicator();
+                    const data = await response.json();
+
+                    if (data.success) {
+                        sessionId = data.data.session_id;
+                        addMessage(data.data.response, 'ociel', data.data.confidence);
+
+                        // Agregar información de contacto si es relevante
+                        if (data.data.contact_info && data.data.requires_human_follow_up) {
+                            addContactInfo(data.data.contact_info);
+                        }
+
+                        break; // Éxito, salir del loop de reintentos
+
+                    } else {
+                        // El servidor respondió pero hubo un error en el procesamiento
+                        if (data.data && data.data.response) {
+                            // Usar respuesta fallback del servidor
+                            sessionId = data.data.session_id;
+                            addMessage(data.data.response, 'ociel', data.data.confidence || 0.3);
+                            addMessage('⚠️ Nota: Esta respuesta se generó en modo de respaldo. Para información más precisa, contacta directamente a la UAN.', 'ociel', 0.3);
+                            break;
+                        } else {
+                            throw new Error(data.error || 'Error procesando la respuesta');
+                        }
+                    }
+
+                } catch (error) {
+                    console.error(`Error en intento ${retryCount + 1}:`, error);
+                    retryCount++;
+
+                    if (error.name === 'AbortError') {
+                        console.log('Solicitud cancelada por timeout');
+                    }
+
+                    if (retryCount < maxRetries) {
+                        // Mostrar mensaje de reintento
+                        updateTypingIndicator(`Reintentando... (${retryCount}/${maxRetries})`);
+                        await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    } else {
+                        // Todos los reintentos fallaron
+                        hideTypingIndicator();
+                        addMessage('🔧 Disculpa, estoy experimentando problemas técnicos temporales. Aquí tienes información de contacto directo:', 'ociel', 0.3);
+                        addContactInfo({
+                            phone: '311-211-8800',
+                            email: 'contacto@uan.edu.mx',
+                            website: 'https://www.uan.edu.mx'
+                        });
+                        addMessage('💡 Tip: Puedes intentar hacer tu consulta de nuevo en unos momentos, o contactar directamente usando la información arriba.', 'ociel', 0.3);
+                    }
+                }
+            }
+
+            hideTypingIndicator();
+        }
+
+        // Función para actualizar el indicador de escritura con mensaje personalizado
+        function updateTypingIndicator(message) {
+            const indicator = document.getElementById('typingIndicator');
+            const dots = indicator.querySelector('.typing-dots');
+            if (dots) {
+                dots.innerHTML = `<span style="font-size: 12px; color: #666;">${message}</span>`;
             }
         }
+
+        // Función mejorada para detectar conectividad
+        function checkConnectivity() {
+            return fetch(`${API_BASE_URL}/ping`, {
+                method: 'GET',
+                timeout: 5000
+            })
+            .then(response => response.ok)
+            .catch(() => false);
+        }
+
+        // Verificar conectividad periódicamente
+        setInterval(async () => {
+            const isOnline = await checkConnectivity();
+            if (!isOnline && !document.querySelector('.connectivity-warning')) {
+                addMessage('🔌 Detecté problemas de conectividad. Las respuestas pueden tardar más de lo normal.', 'ociel', 0.3);
+
+                // Agregar clase para evitar múltiples warnings
+                const lastMessage = document.querySelector('.message:last-child .message-content');
+                if (lastMessage) {
+                    lastMessage.classList.add('connectivity-warning');
+                }
+            }
+        }, 30000); // Verificar cada 30 segundos
+
+        // Mejorar el manejo de eventos offline/online
+        window.addEventListener('online', function() {
+            addMessage('✅ Conexión restaurada. ¡Ya puedes continuar con tus consultas!', 'ociel', 0.8);
+        });
+
+        window.addEventListener('offline', function() {
+            addMessage('📱 Se perdió la conexión a internet. Verifica tu conectividad y vuelve a intentar.', 'ociel', 0.3);
+        });
 
         function sendQuickMessage(message) {
             document.getElementById('messageInput').value = message;
@@ -657,6 +781,12 @@
 
         function addMessage(text, sender, confidence = null) {
             const messagesContainer = document.getElementById('chatMessages');
+
+            // Remover mensaje de bienvenida si existe
+            const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
@@ -667,7 +797,14 @@
 
             const content = document.createElement('div');
             content.className = 'message-content';
-            content.textContent = text;
+
+            // IMPORTANTE: Para Ociel, aplicar formato HTML
+            if (sender === 'ociel') {
+                content.innerHTML = formatOcielResponse(text);
+            } else {
+                // Para usuario, mantener texto plano
+                content.textContent = text;
+            }
 
             // Agregar indicador de confianza para respuestas de Ociel
             if (sender === 'ociel' && confidence !== null) {
@@ -746,48 +883,90 @@
         }
 
         function formatOcielResponse(text) {
-            // Aplicar formato automático al texto de respuesta
             let formatted = text;
 
-            // Primero, proteger los saltos de línea que NO deben ser listas
+            // 1. Proteger saltos de línea importantes
             formatted = formatted.replace(/\n\n/g, '||PARAGRAPH_BREAK||');
 
-            // Solo convertir líneas que REALMENTE empiecen con marcadores de lista
-            formatted = formatted.replace(/^[\*\-\•]\s+(.+)$/gm, '<li>$1</li>');
+            // 2. Detectar y formatear diferentes tipos de listas y elementos
 
-            // Agrupar elementos <li> consecutivos en <ul>
-            formatted = formatted.replace(/(<li>.*<\/li>)/gs, function(match) {
-                // Si ya hay múltiples <li>, envolverlos en <ul>
-                if (match.includes('</li><li>') || match.split('<li>').length > 2) {
-                    return '<ul>' + match + '</ul>';
-                }
-                return '<ul>' + match + '</ul>';
-            });
+            // Listas con • - * +
+            formatted = formatted.replace(/^[\*\-\•\+]\s+(.+)$/gm, '<li>$1</li>');
 
-            // Restaurar los saltos de párrafo
+            // Listas numeradas (1. 2. etc.)
+            formatted = formatted.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+
+            // Elementos que empiezan con + (como en tu ejemplo)
+            formatted = formatted.replace(/^\+\s+(.+)$/gm, '<li>$1</li>');
+
+            // 3. Agrupar elementos <li> consecutivos en <ul>
+            formatted = formatted.replace(/(<li>.*?<\/li>(?:\s*<li>.*?<\/li>)*)/gs, '<ul>$1</ul>');
+
+            // 4. Formatear títulos principales con emojis y **
+            formatted = formatted.replace(/^(🎓|📝|📚|💻|📞|🏥|👋|📋|🎯|⏰|📍|🌐)\s*\*\*(.*?)\*\*/gm, '<h3>$1 $2</h3>');
+
+            // 5. Formatear subtítulos importantes (MAYÚSCULAS con :)
+            formatted = formatted.replace(/^([A-ZÁÉÍÓÚÑ\s]{3,}):?\s*$/gm, '<h4>$1:</h4>');
+
+            // 6. Formatear elementos especiales como NOTA, IMPORTANTE, etc.
+            formatted = formatted.replace(/^(NOTA|IMPORTANTE|ATENCIÓN|REQUISITOS|PROCESO|FECHAS IMPORTANTES):?\s*(.*?)$/gm,
+                '<div class="info-box"><strong>$1:</strong> $2</div>');
+
+            // 7. Formatear texto en negrita **texto**
+            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // 8. Formatear información de contacto
+            formatted = formatted.replace(/^📞\s*(.*?)$/gm, '<div class="contact-info">📞 $1</div>');
+            formatted = formatted.replace(/^📧\s*(.*?)$/gm, '<div class="contact-info">📧 $1</div>');
+            formatted = formatted.replace(/^🌐\s*(.*?)$/gm, '<div class="contact-info">🌐 $1</div>');
+
+            // Detectar líneas que contengan teléfonos (311-211-8800)
+            formatted = formatted.replace(/^(.*?311-211-8800.*?)$/gm, '<div class="contact-info">📞 $1</div>');
+
+            // Detectar líneas que contengan emails (@uan.edu.mx)
+            formatted = formatted.replace(/^(.*?@uan\.edu\.mx.*?)$/gm, '<div class="contact-info">📧 $1</div>');
+
+            // 9. Restaurar párrafos
             formatted = formatted.replace(/\|\|PARAGRAPH_BREAK\|\|/g, '</p><p>');
 
-            // Resaltar información importante
-            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<span class="highlight">$1</span>');
+            // 10. Envolver contenido en párrafos apropiados
+            // Dividir por elementos de bloque para procesar
+            let lines = formatted.split('\n');
+            let result = [];
+            let inParagraph = false;
 
-            // Formatear duraciones y números importantes
-            formatted = formatted.replace(/(\d+\s*(años?|meses?|semestres?))/gi, '<span class="program-duration">$1</span>');
+            for (let line of lines) {
+                line = line.trim();
+                if (!line) continue;
 
-            // Formatear títulos que empiecen con emoji y **
-            formatted = formatted.replace(/^(🏥|🎓|📋|📞|💻|📚|👋|📝)\s*\*\*(.*?)\*\*/gm, '<h3>$1 $2</h3>');
-
-            // Formatear subtítulos
-            formatted = formatted.replace(/^(📋|🎯|📚|⏰|📍)\s*(.+):/gm, '<h4>$1 $2:</h4>');
-
-            // Envolver en párrafos, pero evitar párrafos vacíos
-            if (!formatted.includes('<h3>') && !formatted.includes('<ul>')) {
-                formatted = '<p>' + formatted + '</p>';
+                // Si es un elemento de bloque, cerrar párrafo previo si existe
+                if (line.match(/^<(h[34]|ul|div class="(info-box|contact-info)")/)) {
+                    if (inParagraph) {
+                        result.push('</p>');
+                        inParagraph = false;
+                    }
+                    result.push(line);
+                } else {
+                    // Si es texto normal, abrir párrafo si no está abierto
+                    if (!inParagraph && !line.match(/^<\/?(p|h[34]|ul|div)/)) {
+                        result.push('<p>');
+                        inParagraph = true;
+                    }
+                    result.push(line);
+                }
             }
 
-            // Limpiar párrafos vacíos y elementos mal formados
+            // Cerrar párrafo final si está abierto
+            if (inParagraph) {
+                result.push('</p>');
+            }
+
+            formatted = result.join('\n');
+
+            // 11. Limpiar elementos mal formados
             formatted = formatted.replace(/<p>\s*<\/p>/g, '');
-            formatted = formatted.replace(/<p>\s*<ul>/g, '<ul>');
-            formatted = formatted.replace(/<\/ul>\s*<\/p>/g, '</ul>');
+            formatted = formatted.replace(/<p>\s*(<[hud])/g, '$1');
+            formatted = formatted.replace(/(<\/[hud]>)\s*<\/p>/g, '$1');
 
             return formatted;
         }
