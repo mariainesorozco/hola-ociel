@@ -157,6 +157,8 @@
             word-wrap: break-word;
             line-height: 1.6;
             font-size: 14px;
+            overflow-wrap: break-word;
+            word-break: break-word;
         }
 
         .message.user .message-content {
@@ -173,33 +175,39 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
-        /* === ESTILOS MEJORADOS PARA CONTENIDO DE OCIEL === */
+        /* === CORRECCIÓN PARA CONTENIDO DE OCIEL === */
 
         .message.ociel .message-content h3 {
             color: #1e40af;
-            font-size: 17px;
-            margin-bottom: 12px;
+            font-size: 16px;
+            margin: 0 0 12px 0;
             font-weight: 700;
             display: flex;
             align-items: center;
             gap: 8px;
+            line-height: 1.4;
         }
 
         .message.ociel .message-content h4 {
             color: #1d4ed8;
-            font-size: 15px;
-            margin: 16px 0 10px 0;
+            font-size: 14px;
+            margin: 16px 0 8px 0;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             border-bottom: 2px solid #dbeafe;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
         }
 
         .message.ociel .message-content p {
-            margin-bottom: 12px;
+            margin: 0 0 12px 0;
             color: #374151;
             line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .message.ociel .message-content p:last-child {
+            margin-bottom: 0;
         }
 
         .message.ociel .message-content strong {
@@ -207,116 +215,82 @@
             color: #1f2937;
         }
 
-        /* === LISTAS MEJORADAS === */
+        /* === LISTAS CORREGIDAS === */
 
-        .message.ociel .message-content .content-list {
-            margin: 16px 0;
+        .message.ociel .message-content ul {
+            margin: 12px 0;
             padding: 0;
             list-style: none;
         }
 
-        .message.ociel .message-content .content-list li {
-            margin-bottom: 10px;
-            padding-left: 24px;
+        .message.ociel .message-content li {
+            margin-bottom: 8px;
+            padding-left: 20px;
             position: relative;
-            line-height: 1.6;
+            line-height: 1.5;
             color: #4b5563;
+            font-size: 14px;
         }
 
-        .message.ociel .message-content .content-list li::before {
-            content: "●";
+        .message.ociel .message-content li::before {
+            content: "•";
             color: #3b82f6;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: bold;
             position: absolute;
-            left: 8px;
+            left: 6px;
             top: 0;
         }
 
-        /* === ÁREAS ACADÉMICAS === */
+        /* === INFORMACIÓN DE CONTACTO CORREGIDA === */
 
-        .message.ociel .message-content .academic-area {
-            background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-            border-left: 4px solid #0ea5e9;
-            padding: 16px;
-            margin: 12px 0;
-            border-radius: 0 12px 12px 0;
-        }
-
-        .message.ociel .message-content .academic-area h5 {
-            color: #0369a1;
-            font-size: 15px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .message.ociel .message-content .academic-area p {
-            color: #0c4a6e;
-            margin-bottom: 8px;
-            font-size: 13px;
-        }
-
-        /* === CAJAS INFORMATIVAS === */
-
-        .message.ociel .message-content .info-box {
-            background: linear-gradient(135deg, #eff6ff, #dbeafe);
-            border: 1px solid #93c5fd;
-            border-left: 4px solid #3b82f6;
-            padding: 16px;
-            margin: 16px 0;
-            border-radius: 0 8px 8px 0;
-            font-size: 14px;
-        }
-
-        .message.ociel .message-content .info-box strong {
-            color: #1e40af;
-            font-weight: 700;
-        }
-
-        .message.ociel .message-content .warning-box {
-            background: linear-gradient(135deg, #fefce8, #fef3c7);
-            border: 1px solid #fbbf24;
-            border-left: 4px solid #f59e0b;
-            padding: 16px;
-            margin: 16px 0;
-            border-radius: 0 8px 8px 0;
-            font-size: 14px;
-        }
-
-        .message.ociel .message-content .warning-box strong {
-            color: #92400e;
-            font-weight: 700;
-        }
-
-        /* === INFORMACIÓN DE CONTACTO === */
-
-        .message.ociel .message-content .contact-info {
+        .contact-info {
             background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             border: 1px solid #bbf7d0;
-            padding: 16px;
             border-radius: 12px;
-            margin: 16px 0;
+            padding: 16px;
+            margin: 12px 0;
             font-size: 13px;
             color: #166534;
             font-weight: 500;
         }
 
-        .message.ociel .message-content .contact-info .contact-title {
+        .contact-title {
             font-weight: 700;
             color: #14532d;
             margin-bottom: 8px;
             font-size: 14px;
         }
 
-        .message.ociel .message-content .contact-item {
+        .contact-item {
             display: flex;
             align-items: center;
             gap: 8px;
             margin: 6px 0;
             color: #166534;
+            font-size: 13px;
+        }
+
+        /* === CAJAS INFORMATIVAS CORREGIDAS === */
+
+        .info-box {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border: 1px solid #93c5fd;
+            border-left: 4px solid #3b82f6;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 14px;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, #fefce8, #fef3c7);
+            border: 1px solid #fbbf24;
+            border-left: 4px solid #f59e0b;
+            padding: 12px 16px;
+            margin: 12px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 14px;
         }
 
         /* === AVATAR DE MENSAJE === */
@@ -807,170 +781,85 @@
         }
 
         function formatOcielResponse(text) {
-            let formatted = text;
+            console.log('Formateando texto:', text);
 
-            // DEBUGGING: Log del texto original
-            console.log('Texto original:', text);
+            // 1. Normalizar texto
+            let formatted = text
+                .replace(/\r\n/g, '\n')
+                .replace(/\r/g, '\n')
+                .trim();
 
-            // 1. Proteger saltos de línea dobles
-            formatted = formatted.replace(/\n\n/g, '||PARAGRAPH_BREAK||');
+            // 2. Separar en párrafos
+            const paragraphs = formatted.split('\n\n').filter(p => p.trim());
+            let result = '';
 
-            // 2. Detectar y separar bloques de contenido línea por línea
-            let lines = formatted.split('\n');
-            let processedLines = [];
-            let currentListItems = [];
-            let inList = false;
+            for (let paragraph of paragraphs) {
+                const lines = paragraph.split('\n').filter(l => l.trim());
 
-            console.log('Líneas a procesar:', lines);
+                // Detectar si es una lista
+                const listItems = [];
+                const nonListLines = [];
 
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line) continue;
-
-                console.log(`Procesando línea ${i}: "${line}"`);
-
-                // Detectar elementos de lista con patrones más específicos
-                let isListItem = false;
-                let cleanedLine = line;
-
-                // Patrón 1: Asterisco al inicio (* Texto)
-                if (line.match(/^\*\s+/)) {
-                    cleanedLine = line.replace(/^\*\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado asterisco:', cleanedLine);
-                }
-                // Patrón 2: Guión al inicio (- Texto)
-                else if (line.match(/^-\s+/)) {
-                    cleanedLine = line.replace(/^-\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado guión:', cleanedLine);
-                }
-                // Patrón 3: Viñeta unicode (• Texto)
-                else if (line.match(/^•\s+/)) {
-                    cleanedLine = line.replace(/^•\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado viñeta unicode:', cleanedLine);
-                }
-                // Patrón 4: Más al inicio (+ Texto)
-                else if (line.match(/^\+\s+/)) {
-                    cleanedLine = line.replace(/^\+\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado más:', cleanedLine);
-                }
-                // Patrón 5: Número seguido de punto (1. Texto)
-                else if (line.match(/^\d+\.\s+/)) {
-                    cleanedLine = line.replace(/^\d+\.\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado número:', cleanedLine);
-                }
-                // Patrón 6: Letra seguida de paréntesis (a) Texto)
-                else if (line.match(/^[a-zA-Z]\)\s+/)) {
-                    cleanedLine = line.replace(/^[a-zA-Z]\)\s+/, '');
-                    isListItem = true;
-                    console.log('Detectado letra:', cleanedLine);
-                }
-
-                if (isListItem) {
-                    currentListItems.push(cleanedLine);
-                    inList = true;
-                    console.log('Agregado a lista:', cleanedLine);
-                } else {
-                    // Si estábamos en una lista y encontramos algo que no es lista, cerrar la lista
-                    if (inList && currentListItems.length > 0) {
-                        console.log('Cerrando lista con items:', currentListItems);
-                        processedLines.push(createList(currentListItems));
-                        currentListItems = [];
-                        inList = false;
-                    }
-
-                    // Procesar línea normal
-                    processedLines.push(processLine(line));
-                }
-            }
-
-            // Cerrar lista si terminamos en ella
-            if (inList && currentListItems.length > 0) {
-                console.log('Cerrando lista final con items:', currentListItems);
-                processedLines.push(createList(currentListItems));
-            }
-
-            formatted = processedLines.join('\n');
-            console.log('Resultado después del procesamiento:', formatted);
-
-            // 3. Formatear títulos con emojis
-            formatted = formatted.replace(/^(🎓|📝|📚|💻|📞|🏥|👋|📋|🎯|⏰|📍|🌐)\s*\*\*(.*?)\*\*/gm, '<h3>$1 $2</h3>');
-
-            // 4. Formatear subtítulos importantes
-            formatted = formatted.replace(/^([A-ZÁÉÍÓÚÑ\s]{4,}):?\s*$/gm, '<h4>$1:</h4>');
-
-            // 5. Formatear elementos especiales
-            formatted = formatted.replace(/^(NOTA|IMPORTANTE|ATENCIÓN|REQUISITOS|PROCESO|FECHAS IMPORTANTES):?\s*(.*?)$/gm,
-                function(match, keyword, content) {
-                    if (keyword === 'NOTA') {
-                        return `<div class="warning-box"><strong>${keyword}:</strong> ${content}</div>`;
+                for (let line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.match(/^[-*•+]\s+/) || trimmed.match(/^\d+\.\s+/)) {
+                        listItems.push(trimmed.replace(/^[-*•+]\s+/, '').replace(/^\d+\.\s+/, ''));
                     } else {
-                        return `<div class="info-box"><strong>${keyword}:</strong> ${content}</div>`;
+                        nonListLines.push(trimmed);
                     }
-                });
-
-            // 6. Formatear texto en negrita (DESPUÉS del procesamiento de listas)
-            formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-            // 7. Formatear información de contacto
-            formatted = formatted.replace(/^📞\s*(.*?)$/gm, '<div class="contact-item">📞 $1</div>');
-            formatted = formatted.replace(/^📧\s*(.*?)$/gm, '<div class="contact-item">📧 $1</div>');
-            formatted = formatted.replace(/^🌐\s*(.*?)$/gm, '<div class="contact-item">🌐 $1</div>');
-
-            // Detectar líneas con información de contacto
-            formatted = formatted.replace(/^(.*?311-211-8800.*?)$/gm, '<div class="contact-item">📞 $1</div>');
-            formatted = formatted.replace(/^(.*?@uan\.edu\.mx.*?)$/gm, '<div class="contact-item">📧 $1</div>');
-
-            // 8. Restaurar párrafos
-            formatted = formatted.replace(/\|\|PARAGRAPH_BREAK\|\|/g, '</p><p>');
-
-            // 9. Envolver en párrafos apropiados
-            if (!formatted.includes('<h3>') && !formatted.includes('<ul>') && !formatted.includes('<div class="')) {
-                formatted = '<p>' + formatted + '</p>';
-            }
-
-            // 10. Limpiar elementos mal formados
-            formatted = formatted.replace(/<p>\s*<\/p>/g, '');
-            formatted = formatted.replace(/<p>\s*(<[hud])/g, '$1');
-            formatted = formatted.replace(/(<\/[hud]>)\s*<\/p>/g, '$1');
-
-            console.log('Resultado final:', formatted);
-            return formatted;
-        }
-
-        function createList(items) {
-            let listHtml = '<ul class="content-list">';
-            for (let item of items) {
-                // Detectar si es un área académica (contiene "Área de")
-                if (item.includes('Área de') || item.includes('ÁREA DE')) {
-                    listHtml += `<li><div class="academic-area">
-                        <h5>🎯 ${item}</h5>
-                    </div></li>`;
-                } else {
-                    listHtml += `<li>${item}</li>`;
                 }
-            }
-            listHtml += '</ul>';
-            return listHtml;
-        }
 
-        function processLine(line) {
-            // Detectar si es un área académica y formatearla especialmente
-            if (line.includes('Área de') && line.includes(':')) {
-                let parts = line.split(':');
-                if (parts.length >= 2) {
-                    return `<div class="academic-area">
-                        <h5>🎯 ${parts[0].trim()}</h5>
-                        <p>${parts.slice(1).join(':').trim()}</p>
-                    </div>`;
+                // Procesar líneas no-lista
+                for (let line of nonListLines) {
+                    if (line.match(/^(🎓|📝|📚|💻|📞|🏥|👋|📋|🎯|⏰|📍|🌐)\s*\*\*(.*?)\*\*/)) {
+                        result += `<h3>${line.replace(/\*\*(.*?)\*\*/, '$1')}</h3>`;
+                    } else if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{4,}:\s*$/)) {
+                        result += `<h4>${line}</h4>`;
+                    } else if (line.includes('311-211-8800') || line.includes('@uan.edu.mx')) {
+                        // NO agregar ícono si ya existe en el texto
+                        if (!line.includes('📞') && !line.includes('📧')) {
+                            if (line.includes('311-211-8800')) {
+                                result += `<div class="contact-item">📞 ${line}</div>`;
+                            } else if (line.includes('@uan.edu.mx')) {
+                                result += `<div class="contact-item">📧 ${line}</div>`;
+                            }
+                        } else {
+                            // Ya tiene ícono, solo formatear
+                            result += `<div class="contact-item">${line}</div>`;
+                        }
+                    } else {
+                        // Aplicar formato de negrita
+                        const boldFormatted = line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                        result += `<p>${boldFormatted}</p>`;
+                    }
+                }
+
+                // Agregar lista si existe
+                if (listItems.length > 0) {
+                    result += '<ul>';
+                    for (let item of listItems) {
+                        result += `<li>${item.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</li>`;
+                    }
+                    result += '</ul>';
                 }
             }
 
-            return line;
+            // 3. Envolver información de contacto y limpiar duplicados
+            result = result.replace(
+                /(<div class="contact-item">.*?<\/div>)+/gs,
+                function(match) {
+                    // Limpiar duplicaciones dentro del bloque de contacto
+                    let cleanMatch = match
+                        .replace(/📞\s*📞/g, '📞')
+                        .replace(/📧\s*📧/g, '📧')
+                        .replace(/311-211-8800\s+ext\.\s+311-211-8800\s+ext\.\s+(\d+)/g, '311-211-8800 ext. $1');
+
+                    return '<div class="contact-info"><div class="contact-title">📞 Información de contacto:</div>' + cleanMatch + '</div>';
+                }
+            );
+
+            console.log('Resultado formateado:', result);
+            return result;
         }
 
         function addContactInfo(contactInfo) {

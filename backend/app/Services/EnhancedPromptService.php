@@ -127,7 +127,7 @@ class EnhancedPromptService
     }
 
     /**
-     * Prompt institucional base de alta calidad
+     * Prompt institucional base de alta calidad - CORREGIDO PARA MEJOR FORMATO
      */
     private function getBaseInstitutionalPrompt(): string
     {
@@ -154,16 +154,18 @@ Ubicación: Ciudad de la Cultura \"Amado Nervo\", Tepic, Nayarit
 Contacto Principal: 311-211-8800
 Portal Oficial: https://www.uan.edu.mx
 
-📋 ESTRUCTURA DE RESPUESTA PROFESIONAL:
-- Saludo apropiado y confirmación de comprensión
-- Información principal organizada y completa
-- Datos de contacto específicos y relevantes
-- Pasos de acción claros y secuenciales
-- Seguimiento proactivo y recursos adicionales";
+📋 INSTRUCCIONES CRÍTICAS DE FORMATO:
+- Usa UN SOLO salto de línea (\\n) entre párrafos cortos
+- Usa DOS saltos de línea (\\n\\n) solo para separar secciones principales
+- Para listas, usa guiones simples (-) con un espacio después
+- NO uses asteriscos (*) para listas
+- NO uses elementos de Markdown complejos
+- Mantén párrafos cortos de máximo 3 líneas
+- Estructura clara: Saludo, Información Principal, Contacto, Seguimiento";
     }
 
     /**
-     * Instrucciones especializadas por tipo de consulta
+     * Instrucciones especializadas por tipo de consulta - FORMATO MEJORADO
      */
     private function getSpecializedInstructions(string $queryType): string
     {
@@ -171,113 +173,122 @@ Portal Oficial: https://www.uan.edu.mx
             'tramite_especifico' => "🎓 ESPECIALIZACIÓN EN TRÁMITES ACADÉMICOS:
 
 Como experto en procedimientos universitarios, proporciona:
-- Requisitos COMPLETOS y actualizados
-- Documentación exacta necesaria
-- Cronograma detallado del proceso
-- Costos oficiales (si aplican)
-- Ubicaciones específicas y horarios de atención
-- Contactos directos de responsables
-- Alternativas digitales disponibles
-- Tiempos de respuesta estimados
-- Posibles complicaciones y soluciones
 
-FORMATO OBLIGATORIO para trámites:
-✅ Requisitos | 📄 Documentos | ⏰ Tiempos | 💰 Costos | 📍 Ubicación | 📞 Contacto",
+ESTRUCTURA OBLIGATORIA:
+1. Confirmación del trámite solicitado
+2. Requisitos principales (máximo 5 puntos)
+3. Proceso paso a paso (máximo 4 pasos)
+4. Información de contacto específica
+5. Tiempo estimado si está disponible
+
+FORMATO DE RESPUESTA:
+- Párrafos cortos y directos
+- Listas con guiones simples (-)
+- UN contacto específico por respuesta
+- Lenguaje claro sin tecnicismos innecesarios",
 
             'informacion_carrera' => "🎓 ESPECIALIZACIÓN EN OFERTA ACADÉMICA:
 
 Como consejero académico experto, incluye:
-- Perfil de ingreso detallado
-- Plan de estudios actualizado
-- Duración y modalidades disponibles
-- Campo laboral específico
-- Requisitos de admisión
-- Fechas de convocatoria
-- Proceso de selección
-- Instalaciones y laboratorios especializados
-- Oportunidades de intercambio
-- Contacto de coordinación académica
 
-ESTRUCTURA para carreras:
-🎯 Perfil | 📚 Curriculum | ⏱️ Duración | 💼 Campo Laboral | 📝 Admisión | 📞 Coordinación",
+ESTRUCTURA PARA CARRERAS:
+1. Saludo y confirmación de la carrera
+2. Información básica (duración, modalidad)
+3. Perfil de ingreso principal
+4. Campo laboral general
+5. Contacto para más información
+
+FORMATO ESPECÍFICO:
+- Máximo 4 párrafos
+- Información esencial solamente
+- Evitar listas largas
+- Contacto directo al final",
 
             'servicio_universitario' => "🏛️ ESPECIALIZACIÓN EN SERVICIOS:
 
-Como guía de servicios universitarios, proporciona:
-- Descripción completa del servicio
-- Población objetivo beneficiada
-- Procedimiento de acceso
-- Horarios detallados de operación
-- Ubicaciones exactas
-- Requisitos y restricciones
-- Costos asociados (si existen)
-- Personal responsable
-- Servicios complementarios
-- Canales de comunicación directa",
+Como guía de servicios universitarios:
+
+ESTRUCTURA DE RESPUESTA:
+1. Descripción breve del servicio
+2. Ubicación y horarios básicos
+3. Cómo acceder al servicio
+4. Contacto específico
+
+FORMATO:
+- Información práctica y directa
+- Horarios en formato simple
+- Un solo contacto relevante",
 
             'soporte_tecnico' => "💻 ESPECIALIZACIÓN EN SOPORTE TÉCNICO:
 
 Como especialista en sistemas universitarios:
-- Diagnóstico preciso del problema
-- Soluciones paso a paso
-- Verificaciones requeridas
-- Alternativas de contacto técnico
-- Escalación a DGS cuando corresponda
-- Recursos de autoayuda disponibles
-- Horarios de soporte especializado
-- Políticas de uso y seguridad",
+
+RESPUESTA ESTRUCTURADA:
+1. Confirmación del problema técnico
+2. Solución básica si es simple
+3. Contacto de soporte especializado
+4. Horarios de atención técnica
+
+IMPORTANTE:
+- Respuestas concisas para problemas técnicos
+- Derivar rápidamente a especialistas
+- Incluir extensión específica de sistemas",
 
             'queja_problema' => "🛡️ ESPECIALIZACIÓN EN ATENCIÓN DE PROBLEMAS:
 
-Modo de atención prioritaria activado:
-- Escucha empática y comprensión total
-- Documentación detallada del problema
-- Escalación inmediata a autoridades competentes
-- Canales oficiales de queja
-- Seguimiento garantizado
-- Derechos del usuario
-- Procedimientos de apelación
-- Contactos de supervisión",
+Modo de atención prioritaria:
+
+ESTRUCTURA EMPÁTICA:
+1. Reconocimiento de la situación
+2. Disculpa institucional si corresponde
+3. Escalación inmediata a autoridades
+4. Seguimiento garantizado
+
+TONO:
+- Empático pero profesional
+- Escalación rápida
+- Contacto directo de supervisión",
 
             'consulta_academica' => "🎓 ESPECIALIZACIÓN ACADÉMICA:
 
-Como asesor académico especializado:
-- Información específica del programa
-- Procedimientos académicos aplicables
-- Recursos de apoyo estudiantil
-- Contacto directo con coordinación
-- Reglamentos académicos relevantes
-- Opciones de tutoría y apoyo
-- Servicios complementarios"
+Como asesor académico:
+
+ESTRUCTURA:
+1. Confirmación de la consulta académica
+2. Información general disponible
+3. Contacto de coordinación académica
+4. Recursos adicionales si aplican
+
+FORMATO:
+- Información académica específica
+- Contacto directo con coordinación"
         ];
 
-        return $instructions[$queryType] ?? $instructions['informacion_general'] ??
-            "📋 CONSULTA GENERAL: Proporciona información completa, organizada y con contactos relevantes.";
+        return $instructions[$queryType] ??
+            "📋 CONSULTA GENERAL:
+
+Proporciona información completa pero concisa.
+Estructura: Saludo, Información, Contacto, Seguimiento.
+Máximo 3 párrafos cortos.";
     }
 
     /**
-     * Prompt de contexto de usuario
+     * Prompt de contexto de usuario - SIMPLIFICADO
      */
     private function getUserContextPrompt(string $userType, ?string $department): string
     {
         $userProfiles = [
-            'student' => "👨‍🎓 PERFIL DE USUARIO: ESTUDIANTE
-- Prioriza información académica y servicios estudiantiles
-- Enfócate en trámites, fechas límite y requisitos
-- Usa lenguaje claro pero técnicamente preciso
-- Proporciona recursos de apoyo estudiantil",
+            'student' => "👨‍🎓 USUARIO: ESTUDIANTE
+Enfócate en: trámites estudiantiles, servicios académicos, fechas importantes.
+Lenguaje: claro y directo, sin exceso de formalidad.",
 
-            'employee' => "👩‍💼 PERFIL DE USUARIO: EMPLEADO UNIVERSITARIO
-- Enfócate en procedimientos internos y normativas
-- Proporciona información administrativa detallada
-- Incluye canales internos de comunicación
-- Considera nivel técnico apropiado",
+            'employee' => "👩‍💼 USUARIO: EMPLEADO UNIVERSITARIO
+Enfócate en: procedimientos internos, normativas, canales administrativos.
+Lenguaje: técnico apropiado, información específica.",
 
-            'public' => "🌟 PERFIL DE USUARIO: PÚBLICO GENERAL
-- Usa lenguaje accesible y explicativo
-- Proporciona contexto institucional adicional
-- Enfócate en información de interés general
-- Incluye invitación a conocer más sobre la UAN"
+            'public' => "🌟 USUARIO: PÚBLICO GENERAL
+Enfócate en: información general, oferta educativa, servicios públicos.
+Lenguaje: accesible y explicativo, contexto institucional."
         ];
 
         $departmentContext = $department ? "\n🏛️ DEPARTAMENTO DE INTERÉS: {$department}" : "";
@@ -286,24 +297,25 @@ Como asesor académico especializado:
     }
 
     /**
-     * Prompt de contexto de knowledge base
+     * Prompt de contexto de knowledge base - SIMPLIFICADO
      */
     private function getKnowledgeContextPrompt(array $context): string
     {
         if (empty($context)) {
-            return "⚠️ CONTEXTO: No se encontró información específica en la base de conocimientos. Proporciona información general confiable y deriva a contactos apropiados.";
+            return "⚠️ CONTEXTO: Sin información específica en base de conocimientos.
+ACCIÓN: Proporciona información general confiable y deriva a contactos apropiados.";
         }
 
         $contextText = "📚 INFORMACIÓN OFICIAL DISPONIBLE:\n";
-        foreach (array_slice($context, 0, 3) as $i => $item) {
-            $contextText .= "Fuente " . ($i + 1) . ": " . substr($item, 0, 300) . "...\n\n";
+        foreach (array_slice($context, 0, 2) as $i => $item) {
+            $contextText .= "FUENTE " . ($i + 1) . ": " . substr($item, 0, 200) . "...\n";
         }
 
-        return $contextText . "✅ INSTRUCCIÓN: Utiliza ÚNICAMENTE esta información oficial para construir tu respuesta. No agregues datos no verificados.";
+        return $contextText . "\n✅ INSTRUCCIÓN: Usa ÚNICAMENTE esta información oficial. No agregues datos no verificados.";
     }
 
     /**
-     * Construir prompt completo
+     * Construir prompt completo - FORMATO MEJORADO
      */
     private function buildFullPrompt(string $systemPrompt, string $userMessage, array $context): string
     {
@@ -312,14 +324,19 @@ Como asesor académico especializado:
 📩 CONSULTA DEL USUARIO:
 \"{$userMessage}\"
 
-🎯 TU RESPUESTA DEBE SER:
-- Profesional y empática
-- Completa pero concisa
-- Estructurada y fácil de seguir
-- Rica en información práctica
-- Orientada a la acción
+🎯 FORMATO DE TU RESPUESTA:
+- Saludo apropiado y breve
+- Información principal (máximo 3 párrafos cortos)
+- Contacto específico con teléfono/email
+- Pregunta de seguimiento si corresponde
 
-¡Genera la mejor respuesta posible como Ociel, el asistente más confiable de la UAN!";
+🚫 NO HAGAS:
+- Listas largas con muchos elementos
+- Párrafos extensos
+- Información no verificada
+- Múltiples contactos en una respuesta
+
+¡Responde como Ociel, el asistente más confiable de la UAN!";
     }
 
     /**
@@ -328,11 +345,11 @@ Como asesor académico especializado:
     private function selectOptimalModel(string $queryType): string
     {
         $modelMapping = [
-            'tramite_especifico' => config('services.ollama.primary_model'), // Máxima precisión
-            'informacion_carrera' => config('services.ollama.primary_model'), // Información detallada
-            'queja_problema' => config('services.ollama.primary_model'), // Máxima calidad
+            'tramite_especifico' => config('services.ollama.primary_model'),
+            'informacion_carrera' => config('services.ollama.primary_model'),
+            'queja_problema' => config('services.ollama.primary_model'),
             'consulta_academica' => config('services.ollama.primary_model'),
-            'soporte_tecnico' => config('services.ollama.secondary_model'), // Respuestas rápidas
+            'soporte_tecnico' => config('services.ollama.secondary_model'),
             'servicio_universitario' => config('services.ollama.secondary_model'),
             'informacion_general' => config('services.ollama.secondary_model')
         ];
@@ -346,16 +363,16 @@ Como asesor académico especializado:
     private function getOptimalTemperature(string $queryType): float
     {
         $temperatureMapping = [
-            'tramite_especifico' => 0.2, // Máxima precisión
-            'soporte_tecnico' => 0.3,
-            'informacion_carrera' => 0.4,
-            'queja_problema' => 0.3, // Respuesta controlada
-            'consulta_academica' => 0.4,
-            'servicio_universitario' => 0.5,
-            'informacion_general' => 0.6 // Más creatividad
+            'tramite_especifico' => 0.1, // Máxima precisión
+            'soporte_tecnico' => 0.2,
+            'informacion_carrera' => 0.2,
+            'queja_problema' => 0.2,
+            'consulta_academica' => 0.3,
+            'servicio_universitario' => 0.3,
+            'informacion_general' => 0.4
         ];
 
-        return $temperatureMapping[$queryType] ?? 0.4;
+        return $temperatureMapping[$queryType] ?? 0.2;
     }
 
     /**
@@ -364,38 +381,56 @@ Como asesor académico especializado:
     private function getOptimalTokens(string $queryType): int
     {
         $tokenMapping = [
-            'tramite_especifico' => 1200, // Respuestas detalladas
-            'informacion_carrera' => 1000,
-            'queja_problema' => 800, // Respuestas empáticas pero controladas
-            'consulta_academica' => 900,
-            'soporte_tecnico' => 600, // Respuestas concisas
-            'servicio_universitario' => 800,
-            'informacion_general' => 700
+            'tramite_especifico' => 600, // Respuestas concisas pero completas
+            'informacion_carrera' => 500,
+            'queja_problema' => 400,
+            'consulta_academica' => 500,
+            'soporte_tecnico' => 350,
+            'servicio_universitario' => 450,
+            'informacion_general' => 400
         ];
 
-        return $tokenMapping[$queryType] ?? 800;
+        return $tokenMapping[$queryType] ?? 450;
     }
 
     /**
-     * Mejorar respuesta post-generación
+     * Mejorar respuesta post-generación - FORMATO CORREGIDO
      */
     private function enhanceResponse(string $response, string $queryType, array $context): string
     {
-        // Agregar información de contacto si no está presente
+        // 1. Limpiar formato problemático
+        $response = $this->cleanResponseFormat($response);
+
+        // 2. Agregar información de contacto si no está presente
         if (!$this->containsContactInfo($response)) {
             $contactInfo = $this->getRelevantContactInfo($queryType);
             $response .= "\n\n" . $contactInfo;
         }
 
-        // Agregar estructura si es necesaria
-        if ($queryType === 'tramite_especifico' && !$this->hasStructuredFormat($response)) {
-            $response = $this->addStructuredFormat($response);
-        }
-
-        // Agregar llamada a la acción
+        // 3. Agregar llamada a la acción apropiada
         $response .= "\n\n" . $this->getCallToAction($queryType);
 
         return $response;
+    }
+
+    /**
+     * Limpiar formato de respuesta para evitar desfase
+     */
+    private function cleanResponseFormat(string $response): string
+    {
+        // Convertir asteriscos a guiones para listas
+        $response = preg_replace('/^\* /m', '- ', $response);
+
+        // Eliminar múltiples saltos de línea consecutivos
+        $response = preg_replace('/\n{3,}/', "\n\n", $response);
+
+        // Asegurar formato consistente para títulos
+        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '**$1**', $response);
+
+        // Limpiar espacios al final de líneas
+        $response = preg_replace('/[ \t]+$/m', '', $response);
+
+        return trim($response);
     }
 
     /**
@@ -412,22 +447,17 @@ Como asesor académico especializado:
 
         // Por éxito de generación
         if ($response['success']) {
-            $confidence += 0.2;
+            $confidence += 0.3;
         }
 
         // Por longitud apropiada de respuesta
         $responseLength = strlen($response['response'] ?? '');
-        if ($responseLength > 100 && $responseLength < 2000) {
+        if ($responseLength > 50 && $responseLength < 800) {
             $confidence += 0.2;
         }
 
         // Por presencia de información estructurada
         if ($this->hasStructuredInfo($response['response'] ?? '')) {
-            $confidence += 0.1;
-        }
-
-        // Por presencia de contacto
-        if ($this->containsContactInfo($response['response'] ?? '')) {
             $confidence += 0.1;
         }
 
@@ -443,40 +473,14 @@ Como asesor académico especializado:
     }
 
     /**
-     * Verificar si tiene formato estructurado
-     */
-    private function hasStructuredFormat(string $text): bool
-    {
-        return preg_match('/✅|📄|⏰|💰|📍|📞|🎯|📚/', $text);
-    }
-
-    /**
-     * Agregar formato estructurado para trámites
-     */
-    private function addStructuredFormat(string $response): string
-    {
-        // Si ya tiene estructura, no modificar
-        if ($this->hasStructuredFormat($response)) {
-            return $response;
-        }
-
-        // Agregar encabezado estructurado
-        return "📋 **INFORMACIÓN DEL TRÁMITE**\n\n" . $response;
-    }
-
-    /**
      * Verificar si tiene información estructurada
      */
     private function hasStructuredInfo(string $text): bool
     {
-        // Verificar presencia de elementos informativos clave
         $patterns = [
             '/requisitos?/i',
-            '/documentos?/i',
             '/pasos?/i',
             '/procedimiento/i',
-            '/horarios?/i',
-            '/ubicaci[óo]n/i',
             '/contacto/i'
         ];
 
@@ -496,13 +500,13 @@ Como asesor académico especializado:
     private function getRelevantContactInfo(string $queryType): string
     {
         $contactMapping = [
-            'tramite_especifico' => "📞 **CONTACTO ESPECIALIZADO:**\nDGSA (Servicios Académicos): 311-211-8800 ext. 8530\nEmail: dgsa@uan.edu.mx",
-            'soporte_tecnico' => "💻 **SOPORTE TÉCNICO:**\nDirección General de Sistemas: 311-211-8800 ext. 8540\nEmail: sistemas@uan.edu.mx",
-            'informacion_carrera' => "🎓 **INFORMACIÓN ACADÉMICA:**\nTeléfono general: 311-211-8800\nSitio web: https://www.uan.edu.mx/oferta-educativa",
-            'servicio_universitario' => "🏛️ **SERVICIOS UNIVERSITARIOS:**\nInformación general: 311-211-8800\nPortal de servicios: https://www.uan.edu.mx/servicios"
+            'tramite_especifico' => "📞 DGSA: 311-211-8800 ext. 8530",
+            'soporte_tecnico' => "💻 DGS: 311-211-8800 ext. 8540",
+            'informacion_carrera' => "📞 Información general: 311-211-8800",
+            'servicio_universitario' => "📞 UAN: 311-211-8800"
         ];
 
-        return $contactMapping[$queryType] ?? "📞 **CONTACTO GENERAL:**\nUniversidad Autónoma de Nayarit: 311-211-8800\nSitio web: https://www.uan.edu.mx";
+        return $contactMapping[$queryType] ?? "📞 UAN: 311-211-8800";
     }
 
     /**
@@ -511,247 +515,13 @@ Como asesor académico especializado:
     private function getCallToAction(string $queryType): string
     {
         $ctaMapping = [
-            'tramite_especifico' => "🚀 **SIGUIENTE PASO:** Te recomiendo contactar directamente al departamento correspondiente para confirmar requisitos actualizados y agendar tu cita.",
-            'informacion_carrera' => "🎯 **TE INVITAMOS A:** Visitar nuestras instalaciones, conocer a nuestros docentes y explorar las oportunidades que la UAN tiene para ti.",
-            'soporte_tecnico' => "💡 **RECOMENDACIÓN:** Si el problema persiste, contacta a nuestro equipo técnico especializado para asistencia personalizada.",
-            'queja_problema' => "🛡️ **SEGUIMIENTO GARANTIZADO:** Tu inquietud es importante para nosotros. Te asistiremos personalmente para resolver tu situación.",
-            'servicio_universitario' => "✨ **APROVECHA:** Todos nuestros servicios están diseñados para enriquecer tu experiencia universitaria. ¡Conócelos todos!"
+            'tramite_especifico' => "¿Necesitas información sobre algún requisito específico?",
+            'informacion_carrera' => "¿Te interesa conocer más sobre alguna carrera en particular?",
+            'soporte_tecnico' => "¿El problema persiste o necesitas ayuda con algo más?",
+            'queja_problema' => "¿Hay algo más en lo que pueda asistirte?",
+            'servicio_universitario' => "¿Quieres información sobre algún otro servicio?"
         ];
 
-        return $ctaMapping[$queryType] ?? "🌟 **¿NECESITAS MÁS AYUDA?** Estoy aquí para asistirte. No dudes en hacer más preguntas o contactar directamente a la UAN.";
-    }
-
-    /**
-     * Análisis de sentimiento para ajustar tono
-     */
-    private function analyzeSentiment(string $message): string
-    {
-        $messageLower = strtolower($message);
-
-        // Indicadores de frustración/urgencia
-        $frustrated = ['problema', 'error', 'falla', 'no funciona', 'molesto', 'urgente', 'ayuda'];
-        $isFreustrated = false;
-        foreach ($frustrated as $word) {
-            if (str_contains($messageLower, $word)) {
-                $isFreustrated = true;
-                break;
-            }
-        }
-
-        // Indicadores de consulta formal
-        $formal = ['solicito', 'requiero', 'necesito información', 'quisiera saber'];
-        $isFormal = false;
-        foreach ($formal as $phrase) {
-            if (str_contains($messageLower, $phrase)) {
-                $isFormal = true;
-                break;
-            }
-        }
-
-        if ($isFreustrated) return 'empathetic';
-        if ($isFormal) return 'formal';
-        return 'friendly';
-    }
-
-    /**
-     * Generar variaciones de respuesta para A/B testing
-     */
-    public function generateResponseVariations(string $userMessage, string $userType, array $context): array
-    {
-        $variations = [];
-
-        // Variación 1: Respuesta estándar
-        $variations['standard'] = $this->generateProfessionalResponse($userMessage, $userType, null, $context);
-
-        // Variación 2: Respuesta más concisa
-        $concisePrompt = $this->buildSpecializedPrompt('informacion_general', $userType, null, $context) .
-                        "\n\nIMPORTANTE: Responde de manera CONCISA pero completa. Máximo 3 párrafos.";
-
-        $variations['concise'] = $this->ollamaService->generateResponse(
-            $concisePrompt . "\n\nConsulta: " . $userMessage,
-            ['temperature' => 0.3, 'max_tokens' => 400]
-        );
-
-        // Variación 3: Respuesta más detallada
-        $detailedPrompt = $this->buildSpecializedPrompt('tramite_especifico', $userType, null, $context) .
-                         "\n\nIMPORTANTE: Proporciona respuesta DETALLADA con todos los aspectos relevantes.";
-
-        $variations['detailed'] = $this->ollamaService->generateResponse(
-            $detailedPrompt . "\n\nConsulta: " . $userMessage,
-            ['temperature' => 0.2, 'max_tokens' => 1200]
-        );
-
-        return $variations;
-    }
-
-    /**
-     * Optimización dinámica de prompts basada en feedback
-     */
-    public function optimizePromptFromFeedback(string $queryType, array $feedbackData): array
-    {
-        $currentPrompt = $this->getSpecializedInstructions($queryType);
-
-        // Analizar feedback negativo para mejoras
-        $negativeFeedback = array_filter($feedbackData, fn($f) => !$f['was_helpful']);
-
-        $optimizations = [];
-
-        foreach ($negativeFeedback as $feedback) {
-            if (!empty($feedback['feedback_comment'])) {
-                $comment = strtolower($feedback['feedback_comment']);
-
-                // Detectar problemas comunes
-                if (str_contains($comment, 'incompleto') || str_contains($comment, 'falta información')) {
-                    $optimizations[] = 'add_more_detail';
-                }
-
-                if (str_contains($comment, 'confuso') || str_contains($comment, 'no entiendo')) {
-                    $optimizations[] = 'simplify_language';
-                }
-
-                if (str_contains($comment, 'contacto') || str_contains($comment, 'teléfono')) {
-                    $optimizations[] = 'emphasize_contact_info';
-                }
-            }
-        }
-
-        return [
-            'current_prompt' => $currentPrompt,
-            'suggested_optimizations' => array_unique($optimizations),
-            'optimization_priority' => $this->calculateOptimizationPriority($optimizations),
-            'sample_improvements' => $this->generatePromptImprovements($queryType, $optimizations)
-        ];
-    }
-
-    /**
-     * Calcular prioridad de optimizaciones
-     */
-    private function calculateOptimizationPriority(array $optimizations): array
-    {
-        $counts = array_count_values($optimizations);
-        arsort($counts);
-
-        return array_map(function($count, $opt) {
-            return [
-                'optimization' => $opt,
-                'frequency' => $count,
-                'priority' => $count > 2 ? 'high' : ($count > 1 ? 'medium' : 'low')
-            ];
-        }, $counts, array_keys($counts));
-    }
-
-    /**
-     * Generar mejoras específicas de prompts
-     */
-    private function generatePromptImprovements(string $queryType, array $optimizations): array
-    {
-        $improvements = [];
-
-        foreach ($optimizations as $optimization) {
-            switch ($optimization) {
-                case 'add_more_detail':
-                    $improvements[] = "Agregar sección: 'INFORMACIÓN COMPLEMENTARIA' con datos adicionales relevantes";
-                    break;
-
-                case 'simplify_language':
-                    $improvements[] = "Modificar instrucción: 'Usa lenguaje claro y accesible, evita términos técnicos complejos'";
-                    break;
-
-                case 'emphasize_contact_info':
-                    $improvements[] = "Añadir: 'OBLIGATORIO: Incluir información de contacto específica y actualizada'";
-                    break;
-            }
-        }
-
-        return $improvements;
-    }
-
-    /**
-     * Métricas de rendimiento de prompts
-     */
-    public function getPromptPerformanceMetrics(): array
-    {
-        $last30Days = now()->subDays(30);
-
-        // Métricas por tipo de consulta
-        $metrics = DB::table('chat_interactions')
-            ->where('created_at', '>=', $last30Days)
-            ->selectRaw('
-                COUNT(*) as total_interactions,
-                AVG(confidence) as avg_confidence,
-                AVG(response_time) as avg_response_time,
-                SUM(CASE WHEN was_helpful = 1 THEN 1 ELSE 0 END) as helpful_responses,
-                SUM(CASE WHEN requires_human_follow_up = 1 THEN 1 ELSE 0 END) as escalations
-            ')
-            ->first();
-
-        // Calcular métricas derivadas
-        $satisfactionRate = $metrics->total_interactions > 0
-            ? ($metrics->helpful_responses / $metrics->total_interactions) * 100
-            : 0;
-
-        $escalationRate = $metrics->total_interactions > 0
-            ? ($metrics->escalations / $metrics->total_interactions) * 100
-            : 0;
-
-        return [
-            'period' => '30 días',
-            'total_interactions' => $metrics->total_interactions ?? 0,
-            'average_confidence' => round($metrics->avg_confidence ?? 0, 2),
-            'average_response_time' => round($metrics->avg_response_time ?? 0, 0) . 'ms',
-            'satisfaction_rate' => round($satisfactionRate, 1) . '%',
-            'escalation_rate' => round($escalationRate, 1) . '%',
-            'performance_grade' => $this->calculatePerformanceGrade($metrics),
-            'recommendations' => $this->generatePerformanceRecommendations($metrics)
-        ];
-    }
-
-    /**
-     * Calcular calificación de rendimiento
-     */
-    private function calculatePerformanceGrade($metrics): string
-    {
-        $confidence = $metrics->avg_confidence ?? 0;
-        $helpfulRate = $metrics->total_interactions > 0
-            ? ($metrics->helpful_responses / $metrics->total_interactions)
-            : 0;
-
-        $score = ($confidence * 0.4) + ($helpfulRate * 0.6);
-
-        if ($score >= 0.9) return 'A+ (Excelente)';
-        if ($score >= 0.8) return 'A (Muy Bueno)';
-        if ($score >= 0.7) return 'B+ (Bueno)';
-        if ($score >= 0.6) return 'B (Aceptable)';
-        return 'C (Necesita Mejora)';
-    }
-
-    /**
-     * Generar recomendaciones de rendimiento
-     */
-    private function generatePerformanceRecommendations($metrics): array
-    {
-        $recommendations = [];
-
-        if (($metrics->avg_confidence ?? 0) < 0.7) {
-            $recommendations[] = 'Mejorar prompts para aumentar confianza de respuestas';
-        }
-
-        if ($metrics->total_interactions > 0) {
-            $helpfulRate = $metrics->helpful_responses / $metrics->total_interactions;
-            if ($helpfulRate < 0.8) {
-                $recommendations[] = 'Optimizar contenido de knowledge base';
-            }
-
-            $escalationRate = $metrics->escalations / $metrics->total_interactions;
-            if ($escalationRate > 0.3) {
-                $recommendations[] = 'Ampliar cobertura de información disponible';
-            }
-        }
-
-        if (($metrics->avg_response_time ?? 0) > 3000) {
-            $recommendations[] = 'Optimizar rendimiento de modelos de IA';
-        }
-
-        return $recommendations ?: ['El rendimiento actual es óptimo'];
+        return $ctaMapping[$queryType] ?? "¿En qué más puedo ayudarte?";
     }
 }
