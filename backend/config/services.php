@@ -36,6 +36,13 @@ return [
         'embedding_model' => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
         'timeout' => env('OLLAMA_TIMEOUT', 60),
     ],
+        'ghost' => [
+        'url' => env('GHOST_URL', 'https://blog.uan.edu.mx'),
+        'api_key' => env('GHOST_API_KEY'),
+        'webhook_secret' => env('GHOST_WEBHOOK_SECRET'),
+        'sync_enabled' => env('GHOST_SYNC_ENABLED', true),
+        'auto_sync_interval' => env('GHOST_AUTO_SYNC_INTERVAL', 360), // minutos
+    ],
     'qdrant' => [
         'url' => env('QDRANT_URL', 'http://localhost:6333'),
         'collection' => env('QDRANT_COLLECTION', 'uan_knowledge'),
