@@ -14,12 +14,20 @@ class Kernel extends ConsoleKernel
      * @return void
      */
     protected $commands = [
+        // Comandos existentes
         Commands\DiagnoseOllama::class,
         Commands\ScrapeWebContent::class,
-        Commands\IndexKnowledge::class,
-        Commands\ClearOcielCache::class,
-        Commands\OcielStatus::class,
-        Commands\UpdateEmbeddings::class,
+
+        // Nuevos comandos para embeddings
+        Commands\IndexKnowledgeBase::class,
+        Commands\TestSemanticSearch::class,
+
+        Commands\DebugQdrant::class,
+
+        // Otros comandos
+        // Commands\UpdateEmbeddings::class,
+        // Commands\ClearCache::class,
+        // Commands\StatusCheck::class,
     ];
 
     protected function schedule(Schedule $schedule)
@@ -29,21 +37,33 @@ class Kernel extends ConsoleKernel
         $schedule->command('ociel:scrape-web')
             ->everySixHours()
             ->withoutOverlapping()
-            ->runInBackground();
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/scraping.log'));
+
+        // Indexación automática de embeddings cada 2 horas
+        $schedule->command('ociel:index-knowledge --batch-size=20')
+            ->everyTwoHours()
+            ->withoutOverlapping()
+            ->appendOutputTo(storage_path('logs/indexing.log'));
 
         // Actualizar embeddings cada hora
-        $schedule->command('ociel:update-embeddings')
-            ->hourly()
-            ->withoutOverlapping();
+        // $schedule->command('ociel:update-embeddings')
+        //     ->hourly()
+        //     ->withoutOverlapping();
+
+        // Diagnóstico del sistema cada 30 minutos
+        $schedule->command('ociel:diagnose-ollama')
+            ->everyThirtyMinutes()
+            ->appendOutputTo(storage_path('logs/health-check.log'));
 
         // Limpiar cache viejo cada día
-        $schedule->command('ociel:clear-cache --type=knowledge')
-            ->dailyAt('02:00');
+        // $schedule->command('ociel:clear-cache --type=knowledge')
+        //     ->dailyAt('02:00');
 
         // Status check cada 15 minutos (para monitoreo)
-        $schedule->command('ociel:status --json')
-            ->everyFifteenMinutes()
-            ->appendOutputTo(storage_path('logs/ociel-health.log'));
+        // $schedule->command('ociel:status --json')
+        //     ->everyFifteenMinutes()
+        //     ->appendOutputTo(storage_path('logs/ociel-health.log'));
     }
 
     /**

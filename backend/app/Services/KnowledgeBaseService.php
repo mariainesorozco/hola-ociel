@@ -19,99 +19,104 @@ class KnowledgeBaseService
     }
 
     /**
-     * BÚSQUEDA RELEVANTE MEJORADA CON ESTRATEGIA HÍBRIDA
+     * Buscar contenido relevante en la base de conocimientos - VERSIÓN MEJORADA
      */
     public function searchRelevantContent(string $query, string $userType = 'public', ?string $department = null): array
     {
-        $cacheKey = $this->generateCacheKey($query, $userType, $department);
+        Log::info('Searching knowledge base', [
+            'query' => $query,
+            'user_type' => $userType,
+            'department' => $department
+        ]);
 
-        // Verificar cache primero
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
+        // 1. Búsqueda semántica usando embeddings (PRIORIDAD)
+        $semanticResults = $this->semanticSearch($query, $userType, $department);
 
-        try {
-            // 1. BÚSQUEDA SEMÁNTICA (si Qdrant está disponible)
-            $semanticResults = $this->performSemanticSearch($query, $userType, $department);
+        // 2. Búsqueda por palabras clave (COMPLEMENTARIA)
+        $keywordResults = $this->keywordSearch($query, $userType, $department);
 
-            // 2. BÚSQUEDA POR PALABRAS CLAVE (MySQL Full-Text)
-            $keywordResults = $this->performKeywordSearch($query, $userType, $department);
+        // 3. Combinar y rankear resultados
+        $combinedResults = $this->combineAndRankResults($keywordResults, $semanticResults);
 
-            // 3. BÚSQUEDA POR CATEGORÍA/INTENCIÓN
-            $categoryResults = $this->performCategorySearch($query, $userType, $department);
+        // 4. Extraer solo el contenido textual para el contexto
+        $finalResults = $combinedResults->take(3)->pluck('content')->toArray();
 
-            // 4. COMBINAR Y RANKEAR RESULTADOS
-            $combinedResults = $this->hybridRanking($semanticResults, $keywordResults, $categoryResults, $query);
+        Log::info('Search completed', [
+            'semantic_count' => $semanticResults->count(),
+            'keyword_count' => $keywordResults->count(),
+            'final_count' => count($finalResults)
+        ]);
 
-            // 5. EXTRAER CONTENIDO FINAL
-            $finalContent = $this->extractFinalContent($combinedResults);
-
-            // Cachear resultado por 1 hora
-            Cache::put($cacheKey, $finalContent, 3600);
-
-            return $finalContent;
-
-        } catch (\Exception $e) {
-            Log::error('Knowledge search error: ' . $e->getMessage(), [
-                'query' => $query,
-                'user_type' => $userType,
-                'department' => $department
-            ]);
-
-            // Fallback a búsqueda simple
-            return $this->performSimpleFallbackSearch($query, $userType, $department);
-        }
+        return $finalResults;
     }
 
     /**
-     * BÚSQUEDA SEMÁNTICA USANDO VECTORES
+     * Búsqueda semántica usando embeddings - AHORA FUNCIONAL
      */
-    private function performSemanticSearch(string $query, string $userType, ?string $department): Collection
+    private function semanticSearch(string $query, string $userType, ?string $department): Collection
     {
+        // Verificar si el servicio vectorial está disponible
         if (!$this->vectorService || !$this->vectorService->isHealthy()) {
+            Log::warning('Vector service not available for semantic search');
             return collect([]);
         }
 
         try {
-            // Preparar filtros para búsqueda vectorial
+            // Preparar filtros
             $filters = ['user_type' => $userType];
             if ($department) {
                 $filters['department'] = $department;
             }
 
-            // Realizar búsqueda semántica
+            // Ejecutar búsqueda semántica
             $results = $this->vectorService->searchSimilarContent($query, 5, $filters);
 
-            return collect($results)->map(function ($item) {
-                return [
-                    'id' => $item['id'],
-                    'content' => $this->getFullContentById($item['id']),
-                    'title' => $item['title'] ?? '',
-                    'score' => $item['score'],
+            // Convertir a formato estándar
+            return collect($results)->map(function ($result) {
+                return (object) [
+                    'id' => $result['id'],
+                    'title' => $result['title'] ?? '',
+                    'content' => $this->getFullContentById($result['id']),
+                    'category' => $result['category'] ?? '',
+                    'department' => $result['department'] ?? '',
+                    'contact_info' => null,
+                    'priority' => 'high', // Búsqueda semántica tiene alta prioridad
                     'search_type' => 'semantic',
-                    'category' => $item['category'] ?? '',
-                    'department' => $item['department'] ?? ''
+                    'relevance_score' => $result['score'] ?? 0.8
                 ];
-            })->filter(function($item) {
-                return !empty($item['content']);
             });
 
         } catch (\Exception $e) {
-            Log::warning('Semantic search failed: ' . $e->getMessage());
+            Log::error('Semantic search failed', [
+                'error' => $e->getMessage(),
+                'query' => $query
+            ]);
             return collect([]);
         }
     }
 
     /**
-     * BÚSQUEDA POR PALABRAS CLAVE MEJORADA
+     * Obtener contenido completo por ID
      */
-    private function performKeywordSearch(string $query, string $userType, ?string $department): Collection
+    private function getFullContentById(int $id): string
+    {
+        $content = DB::table('knowledge_base')
+            ->where('id', $id)
+            ->where('is_active', true)
+            ->value('content');
+
+        return $content ?? '';
+    }
+
+    /**
+     * Búsqueda por palabras clave usando MySQL Full-Text Search - MEJORADA
+     */
+    private function keywordSearch(string $query, string $userType, ?string $department): Collection
     {
         $baseQuery = DB::table('knowledge_base')
             ->where('is_active', true)
             ->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)]);
 
-        // Filtro por departamento
         if ($department) {
             $baseQuery->where(function($q) use ($department) {
                 $q->where('department', $department)
@@ -119,32 +124,20 @@ class KnowledgeBaseService
             });
         }
 
-        // Estrategia de búsqueda escalonada
-        $results = collect([]);
-
-        // 1. Búsqueda Full-Text (más precisa)
+        // Usar full-text search si está disponible
         try {
-            $fullTextResults = (clone $baseQuery)
+            $results = $baseQuery
                 ->whereRaw('MATCH(title, content) AGAINST(? IN BOOLEAN MODE)', [$this->prepareSearchTerm($query)])
-                ->selectRaw('*, MATCH(title, content) AGAINST(? IN BOOLEAN MODE) as relevance_score', [$this->prepareSearchTerm($query)])
-                ->orderBy('relevance_score', 'desc')
-                ->orderBy('priority', 'desc')
-                ->limit(3)
+                ->select(['id', 'title', 'content', 'category', 'department', 'contact_info', 'priority'])
+                ->orderByRaw('MATCH(title, content) AGAINST(? IN BOOLEAN MODE) DESC', [$this->prepareSearchTerm($query)])
+                ->limit(5)
                 ->get();
 
-            $results = $results->concat($fullTextResults->map(function($item) {
-                $item->search_type = 'fulltext';
-                $item->score = $item->relevance_score ?? 0.5;
-                return $item;
-            }));
-
         } catch (\Exception $e) {
-            Log::warning('Full-text search failed, falling back to LIKE: ' . $e->getMessage());
-        }
+            Log::warning('Full-text search failed, using LIKE fallback', ['error' => $e->getMessage()]);
 
-        // 2. Búsqueda LIKE (si Full-Text no encuentra suficientes resultados)
-        if ($results->count() < 2) {
-            $likeResults = (clone $baseQuery)
+            // Fallback a LIKE search si full-text no funciona
+            $results = $baseQuery
                 ->where(function($q) use ($query) {
                     $q->where('title', 'LIKE', "%{$query}%")
                       ->orWhere('content', 'LIKE', "%{$query}%")
@@ -152,250 +145,88 @@ class KnowledgeBaseService
                 })
                 ->select(['id', 'title', 'content', 'category', 'department', 'contact_info', 'priority'])
                 ->orderBy('priority', 'desc')
-                ->orderByRaw('CASE WHEN title LIKE ? THEN 1 ELSE 2 END', ["%{$query}%"])
-                ->limit(3)
+                ->limit(5)
                 ->get();
+        }
 
-            $results = $results->concat($likeResults->map(function($item) {
-                $item->search_type = 'like';
-                $item->score = $this->calculateKeywordScore($item);
+        return $results->map(function($item) {
+            $item->search_type = 'keyword';
+            $item->relevance_score = $this->calculateKeywordRelevance($item);
+            return $item;
+        });
+    }
+
+    /**
+     * Combinar y rankear resultados de ambos tipos de búsqueda - MEJORADO
+     */
+    private function combineAndRankResults(Collection $keywordResults, Collection $semanticResults): Collection
+    {
+        // Si tenemos resultados semánticos, darles prioridad
+        if ($semanticResults->isNotEmpty()) {
+            // Combinar, dando peso extra a resultados semánticos
+            $combined = $semanticResults->map(function ($item) {
+                $item->relevance_score = ($item->relevance_score ?? 0.8) + 0.2; // Bonus semántico
                 return $item;
-            }));
-        }
-
-        return $results->unique('id');
-    }
-
-    /**
-     * BÚSQUEDA POR CATEGORÍA/INTENCIÓN
-     */
-    private function performCategorySearch(string $query, string $userType, ?string $department): Collection
-    {
-        $detectedCategory = $this->detectQueryCategory($query);
-
-        if (!$detectedCategory) {
-            return collect([]);
-        }
-
-        return DB::table('knowledge_base')
-            ->where('is_active', true)
-            ->where('category', $detectedCategory)
-            ->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)])
-            ->when($department, function($q, $dept) {
-                $q->where(function($subQ) use ($dept) {
-                    $subQ->where('department', $dept)->orWhere('department', 'GENERAL');
-                });
-            })
-            ->orderBy('priority', 'desc')
-            ->limit(2)
-            ->get()
-            ->map(function($item) {
-                $item->search_type = 'category';
-                $item->score = 0.6; // Score moderado para resultados por categoría
-                return $item;
-            });
-    }
-
-    /**
-     * DETECTAR CATEGORÍA DE LA CONSULTA
-     */
-    private function detectQueryCategory(string $query): ?string
-    {
-        $queryLower = strtolower($query);
-
-        $categoryPatterns = [
-            'tramites' => [
-                'inscripción', 'inscripcion', 'admisión', 'admision', 'registro', 'matricula',
-                'titulación', 'titulacion', 'grado', 'certificado', 'constancia', 'trámite',
-                'proceso', 'requisito', 'documento', 'solicitud'
-            ],
-            'oferta_educativa' => [
-                'carrera', 'licenciatura', 'programa', 'plan de estudios', 'académico',
-                'maestría', 'doctorado', 'posgrado', 'especialidad', 'diplomado',
-                'oferta educativa', 'pensum', 'materias', 'asignaturas'
-            ],
-            'servicios' => [
-                'biblioteca', 'laboratorio', 'servicio', 'apoyo', 'beca', 'residencia',
-                'comedor', 'transporte', 'médico', 'psicológico', 'deportivo',
-                'cultural', 'wifi', 'internet', 'cafetería'
-            ],
-            'sistemas' => [
-                'sistema', 'plataforma', 'correo', 'email', 'password', 'contraseña',
-                'login', 'acceso', 'cuenta', 'usuario', 'tecnología', 'soporte técnico',
-                'error', 'falla', 'problema técnico'
-            ],
-            'informacion_general' => [
-                'universidad', 'historia', 'misión', 'visión', 'campus', 'ubicación',
-                'dirección', 'contacto', 'teléfono', 'información general', 'acerca de'
-            ]
-        ];
-
-        foreach ($categoryPatterns as $category => $patterns) {
-            foreach ($patterns as $pattern) {
-                if (strpos($queryLower, $pattern) !== false) {
-                    return $category;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * RANKING HÍBRIDO DE RESULTADOS
-     */
-    private function hybridRanking(Collection $semantic, Collection $keyword, Collection $category, string $query): Collection
-    {
-        $allResults = collect([]);
-
-        // Agregar resultados semánticos con boost
-        $semantic->each(function($item) use ($allResults) {
-            $item->final_score = ($item->score * 0.4) + 0.3; // Boost semántico
-            $allResults->push($item);
-        });
-
-        // Agregar resultados de keywords
-        $keyword->each(function($item) use ($allResults) {
-            $existing = $allResults->firstWhere('id', $item->id);
-            if ($existing) {
-                // Combinar scores si ya existe
-                $existing->final_score = max($existing->final_score, $item->score * 0.35);
-                $existing->search_type .= '+keyword';
-            } else {
-                $item->final_score = $item->score * 0.35;
-                $allResults->push($item);
-            }
-        });
-
-        // Agregar resultados de categoría
-        $category->each(function($item) use ($allResults) {
-            $existing = $allResults->firstWhere('id', $item->id);
-            if ($existing) {
-                $existing->final_score += 0.15; // Boost por relevancia categórica
-                $existing->search_type .= '+category';
-            } else {
-                $item->final_score = 0.25;
-                $allResults->push($item);
-            }
-        });
-
-        // Aplicar boost por priority y relevancia del título
-        $queryLower = strtolower($query);
-        $allResults->each(function($item) use ($queryLower) {
-            // Boost por prioridad
-            $priorityBoost = $this->getPriorityBoost($item->priority ?? 'medium');
-
-            // Boost por coincidencia en título
-            $titleBoost = (strpos(strtolower($item->title ?? ''), $queryLower) !== false) ? 0.1 : 0;
-
-            $item->final_score += $priorityBoost + $titleBoost;
-        });
-
-        return $allResults->sortByDesc('final_score')->unique('id');
-    }
-
-    /**
-     * OBTENER BOOST POR PRIORIDAD
-     */
-    private function getPriorityBoost(string $priority): float
-    {
-        switch ($priority) {
-            case 'high':
-                return 0.15;
-            case 'medium':
-                return 0.05;
-            case 'low':
-                return 0;
-            default:
-                return 0.05;
-        }
-    }
-
-    /**
-     * EXTRAER CONTENIDO FINAL OPTIMIZADO
-     */
-    private function extractFinalContent(Collection $rankedResults): array
-    {
-        return $rankedResults
-            ->take(3)
-            ->map(function($item) {
-                // Optimizar longitud del contenido
-                $content = $item->content ?? '';
-                if (strlen($content) > 800) {
-                    $content = substr($content, 0, 800) . '...';
-                }
-                return $content;
-            })
-            ->filter(function($content) {
-                return !empty(trim($content));
-            })
-            ->values()
-            ->toArray();
-    }
-
-    /**
-     * BÚSQUEDA SIMPLE PARA FALLBACK
-     */
-    private function performSimpleFallbackSearch(string $query, string $userType, ?string $department): array
-    {
-        try {
-            $results = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)])
-                ->where(function($q) use ($query) {
-                    $q->where('title', 'LIKE', "%{$query}%")
-                      ->orWhere('content', 'LIKE', "%{$query}%");
+            })->concat(
+                $keywordResults->filter(function ($keywordItem) use ($semanticResults) {
+                    // Evitar duplicados basados en ID
+                    return !$semanticResults->contains('id', $keywordItem->id);
                 })
-                ->orderBy('priority', 'desc')
-                ->limit(2)
-                ->get(['content']);
-
-            return $results->pluck('content')->toArray();
-        } catch (\Exception $e) {
-            Log::error('Fallback search failed: ' . $e->getMessage());
-            return [];
+            );
+        } else {
+            // Solo resultados de palabras clave
+            $combined = $keywordResults;
         }
+
+        // Ordenar por relevancia combinada
+        return $combined->sortByDesc(function ($item) {
+            $baseScore = $item->relevance_score ?? 0.5;
+
+            // Bonus por tipo de búsqueda
+            $typeBonus = ($item->search_type === 'semantic') ? 0.3 : 0.1;
+
+            // Bonus por prioridad
+            switch ($item->priority ?? 'medium') {
+                case 'high':
+                    $priorityBonus = 0.2;
+                    break;
+                case 'medium':
+                    $priorityBonus = 0.1;
+                    break;
+                case 'low':
+                    $priorityBonus = 0.05;
+                    break;
+                default:
+                    $priorityBonus = 0.1;
+                    break;
+            }
+
+            return $baseScore + $typeBonus + $priorityBonus;
+        });
     }
 
     /**
-     * OBTENER CONTENIDO COMPLETO POR ID
+     * Calcular relevancia para resultados de búsqueda por palabras clave
      */
-    private function getFullContentById(int $id): string
+    private function calculateKeywordRelevance($item): float
     {
-        try {
-            $item = DB::table('knowledge_base')
-                ->where('id', $id)
-                ->where('is_active', true)
-                ->first(['content']);
+        $score = 0.5; // Base score
 
-            return $item->content ?? '';
-        } catch (\Exception $e) {
-            Log::warning("Failed to get content for ID {$id}: " . $e->getMessage());
-            return '';
+        // Bonus por prioridad
+        switch ($item->priority) {
+            case 'high':
+                $score += 0.3;
+                break;
+            case 'medium':
+                $score += 0.2;
+                break;
+            case 'low':
+                $score += 0.1;
+                break;
         }
-    }
-
-    /**
-     * GENERAR CLAVE DE CACHE
-     */
-    private function generateCacheKey(string $query, string $userType, ?string $department): string
-    {
-        $key = 'knowledge_search_' . md5($query . $userType . ($department ?? ''));
-        return $key;
-    }
-
-    /**
-     * CALCULAR SCORE DE PALABRA CLAVE
-     */
-    private function calculateKeywordScore($item): float
-    {
-        $score = 0.4; // Base score
-
-        // Bonus por prioridad usando método auxiliar
-        $score += $this->getPriorityScoreBonus($item->priority ?? 'medium');
 
         // Bonus por categoría específica
-        if (in_array($item->category ?? '', ['tramites', 'servicios', 'oferta_educativa'])) {
+        if (in_array($item->category, ['tramites', 'servicios'])) {
             $score += 0.2;
         }
 
@@ -403,164 +234,244 @@ class KnowledgeBaseService
     }
 
     /**
-     * OBTENER BONUS DE SCORE POR PRIORIDAD
-     */
-    private function getPriorityScoreBonus(string $priority): float
-    {
-        switch ($priority) {
-            case 'high':
-                return 0.3;
-            case 'medium':
-                return 0.2;
-            case 'low':
-                return 0.1;
-            default:
-                return 0.2;
-        }
-    }
-
-    /**
-     * PREPARAR TÉRMINO DE BÚSQUEDA PARA MYSQL FULL-TEXT
+     * Preparar término de búsqueda para MySQL Full-Text
      */
     private function prepareSearchTerm(string $query): string
     {
-        // Limpiar y preparar el término
+        // Limpiar y preparar el término para búsqueda booleana
         $terms = preg_split('/\s+/', trim($query));
         $terms = array_filter($terms, function($term) {
-            return strlen($term) > 2;
+            return strlen($term) > 2; // Ignorar términos muy cortos
         });
-
-        if (empty($terms)) {
-            return $query;
-        }
 
         // Convertir a formato de búsqueda booleana
         $searchTerms = array_map(function($term) {
-            return "+{$term}*";
+            return "+{$term}*"; // Prefijo obligatorio + wildcard
         }, $terms);
 
         return implode(' ', $searchTerms);
     }
 
     /**
-     * BÚSQUEDA POR PREGUNTAS FRECUENTES MEJORADA
+     * Agregar nuevo contenido a la base de conocimientos - CON AUTO-INDEXACIÓN
      */
-    public function searchFrequentQuestions(string $query): Collection
-    {
-        $commonQuestions = [
-            'inscripción' => ['tramites', 'admisión', 'registro'],
-            'carrera' => ['oferta_educativa', 'programa', 'licenciatura'],
-            'titulación' => ['tramites', 'grado', 'egreso'],
-            'biblioteca' => ['servicios', 'libros', 'consulta'],
-            'sistema' => ['servicios', 'tecnología', 'soporte'],
-            'contacto' => ['informacion_general', 'teléfono', 'dirección'],
-            'beca' => ['servicios', 'apoyo', 'financiero'],
-            'examen' => ['tramites', 'evaluación', 'admisión']
-        ];
-
-        $queryLower = strtolower($query);
-        $matchedCategories = [];
-
-        foreach ($commonQuestions as $keyword => $categories) {
-            if (strpos($queryLower, $keyword) !== false) {
-                $matchedCategories = array_merge($matchedCategories, $categories);
-            }
-        }
-
-        if (empty($matchedCategories)) {
-            return collect([]);
-        }
-
-        return DB::table('knowledge_base')
-            ->where('is_active', true)
-            ->whereIn('category', array_unique($matchedCategories))
-            ->orderBy('priority', 'desc')
-            ->limit(2)
-            ->get();
-    }
-
-    /**
-     * OBTENER ESTADÍSTICAS MEJORADAS
-     */
-    public function getStats(): array
+    public function addContent(array $data): bool
     {
         try {
-            $baseStats = [
-                'total_entries' => DB::table('knowledge_base')->where('is_active', true)->count(),
-                'total_inactive' => DB::table('knowledge_base')->where('is_active', false)->count(),
-                'last_updated' => DB::table('knowledge_base')->max('updated_at')
-            ];
+            $data['created_at'] = now();
+            $data['updated_at'] = now();
 
-            $categoryStats = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->groupBy('category')
-                ->selectRaw('category, COUNT(*) as count, MAX(updated_at) as last_update')
-                ->get()
-                ->mapWithKeys(function($item) {
-                    return [$item->category => [
-                        'count' => $item->count,
-                        'last_update' => $item->last_update
-                    ]];
-                })
-                ->toArray();
-
-            $departmentStats = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->groupBy('department')
-                ->selectRaw('department, COUNT(*) as count')
-                ->get()
-                ->mapWithKeys(function($item) {
-                    return [$item->department => $item->count];
-                })
-                ->toArray();
-
-            $priorityStats = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->groupBy('priority')
-                ->selectRaw('priority, COUNT(*) as count')
-                ->get()
-                ->mapWithKeys(function($item) {
-                    return [$item->priority => $item->count];
-                })
-                ->toArray();
-
-            // Estadísticas de vectores si está disponible
-            $vectorStats = [];
-            if ($this->vectorService && $this->vectorService->isHealthy()) {
-                $vectorStats = $this->vectorService->getCollectionStats();
+            // Validar que user_types sea JSON
+            if (isset($data['user_types']) && !is_string($data['user_types'])) {
+                $data['user_types'] = json_encode($data['user_types']);
             }
 
-            return array_merge($baseStats, [
-                'by_category' => $categoryStats,
-                'by_department' => $departmentStats,
-                'by_priority' => $priorityStats,
-                'vector_stats' => $vectorStats
-            ]);
+            if (isset($data['keywords']) && !is_string($data['keywords'])) {
+                $data['keywords'] = json_encode($data['keywords']);
+            }
+
+            // Insertar y obtener ID
+            $id = DB::table('knowledge_base')->insertGetId($data);
+
+            // AUTO-INDEXAR EN QDRANT
+            $this->autoIndexContent($id, $data);
+
+            return true;
 
         } catch (\Exception $e) {
-            Log::error('Error getting knowledge base stats: ' . $e->getMessage());
-            return ['error' => 'No se pudieron obtener las estadísticas'];
-        }
-    }
-
-    /**
-     * VERIFICAR SALUD DEL SERVICIO
-     */
-    public function isHealthy(): bool
-    {
-        try {
-            $count = DB::table('knowledge_base')->where('is_active', true)->count();
-            return $count > 0;
-        } catch (\Exception $e) {
-            Log::error('Knowledge base health check failed: ' . $e->getMessage());
+            Log::error('Error adding knowledge base content: ' . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * MÉTODOS EXISTENTES MANTENIDOS PARA COMPATIBILIDAD
+     * Auto-indexar contenido nuevo en la base vectorial
      */
+    private function autoIndexContent(int $id, array $data): void
+    {
+        if (!$this->vectorService || !$this->vectorService->isHealthy()) {
+            Log::warning('Vector service not available for auto-indexing', ['content_id' => $id]);
+            return;
+        }
 
+        try {
+            // Crear texto combinado
+            $combinedText = $data['title'] . "\n\n" . $data['content'];
+
+            // Agregar keywords si existen
+            $keywords = is_string($data['keywords'] ?? '')
+                ? json_decode($data['keywords'], true)
+                : ($data['keywords'] ?? []);
+
+            if (!empty($keywords)) {
+                $combinedText .= "\n\nPalabras clave: " . implode(', ', $keywords);
+            }
+
+            // Agregar metadatos
+            $combinedText .= "\n\nCategoría: " . ($data['category'] ?? 'general');
+            $combinedText .= "\nDepartamento: " . ($data['department'] ?? 'GENERAL');
+
+            // Generar embedding
+            $embedding = $this->ollamaService->generateEmbedding($combinedText);
+
+            if (!empty($embedding)) {
+                // Preparar payload para Qdrant
+                $payload = [
+                    'title' => $data['title'],
+                    'content_preview' => substr($data['content'], 0, 500),
+                    'category' => $data['category'] ?? 'general',
+                    'department' => $data['department'] ?? 'GENERAL',
+                    'keywords' => $keywords,
+                    'indexed_at' => now()->toISOString()
+                ];
+
+                // Indexar en Qdrant
+                $points = [[
+                    'id' => $id,
+                    'vector' => $embedding,
+                    'payload' => $payload
+                ]];
+
+                if ($this->vectorService->upsertPoints($points)) {
+                    Log::info('Content auto-indexed successfully', ['content_id' => $id]);
+                } else {
+                    Log::warning('Failed to auto-index content', ['content_id' => $id]);
+                }
+            } else {
+                Log::warning('Failed to generate embedding for auto-indexing', ['content_id' => $id]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Auto-indexing failed', [
+                'content_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Actualizar contenido existente - CON RE-INDEXACIÓN
+     */
+    public function updateContent(int $id, array $data): bool
+    {
+        try {
+            $data['updated_at'] = now();
+
+            // Validar JSON fields
+            if (isset($data['user_types']) && !is_string($data['user_types'])) {
+                $data['user_types'] = json_encode($data['user_types']);
+            }
+
+            if (isset($data['keywords']) && !is_string($data['keywords'])) {
+                $data['keywords'] = json_encode($data['keywords']);
+            }
+
+            // Actualizar en base de datos
+            $updated = DB::table('knowledge_base')
+                ->where('id', $id)
+                ->update($data);
+
+            if ($updated) {
+                // RE-INDEXAR automáticamente
+                $this->reIndexContent($id);
+                return true;
+            }
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('Error updating knowledge base content: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Re-indexar contenido actualizado
+     */
+    private function reIndexContent(int $id): void
+    {
+        if (!$this->vectorService || !$this->vectorService->isHealthy()) {
+            return;
+        }
+
+        try {
+            // Obtener contenido actualizado
+            $content = DB::table('knowledge_base')
+                ->where('id', $id)
+                ->where('is_active', true)
+                ->first();
+
+            if (!$content) {
+                return;
+            }
+
+            // Re-generar embedding con contenido actualizado
+            $combinedText = $content->title . "\n\n" . $content->content;
+
+            $keywords = json_decode($content->keywords, true) ?? [];
+            if (!empty($keywords)) {
+                $combinedText .= "\n\nPalabras clave: " . implode(', ', $keywords);
+            }
+
+            $combinedText .= "\n\nCategoría: " . $content->category;
+            $combinedText .= "\nDepartamento: " . $content->department;
+
+            $embedding = $this->ollamaService->generateEmbedding($combinedText);
+
+            if (!empty($embedding)) {
+                $payload = [
+                    'title' => $content->title,
+                    'content_preview' => substr($content->content, 0, 500),
+                    'category' => $content->category,
+                    'department' => $content->department,
+                    'keywords' => $keywords,
+                    'indexed_at' => now()->toISOString()
+                ];
+
+                $points = [[
+                    'id' => $id,
+                    'vector' => $embedding,
+                    'payload' => $payload
+                ]];
+
+                $this->vectorService->upsertPoints($points);
+                Log::info('Content re-indexed successfully', ['content_id' => $id]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Re-indexing failed', [
+                'content_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Eliminar contenido - CON LIMPIEZA DE ÍNDICE
+     */
+    public function deleteContent(int $id): bool
+    {
+        try {
+            // Eliminar de base de datos
+            $deleted = DB::table('knowledge_base')->where('id', $id)->delete();
+
+            if ($deleted && $this->vectorService && $this->vectorService->isHealthy()) {
+                // Eliminar del índice vectorial
+                $this->vectorService->deleteContent($id);
+                Log::info('Content deleted from both DB and vector index', ['content_id' => $id]);
+            }
+
+            return $deleted > 0;
+
+        } catch (\Exception $e) {
+            Log::error('Error deleting knowledge base content: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Obtener contenido por categoría
+     */
     public function getContentByCategory(string $category, string $userType = 'public'): Collection
     {
         return DB::table('knowledge_base')
@@ -572,6 +483,9 @@ class KnowledgeBaseService
             ->get();
     }
 
+    /**
+     * Obtener contenido por departamento
+     */
     public function getContentByDepartment(string $department, string $userType = 'public'): Collection
     {
         return DB::table('knowledge_base')
@@ -586,67 +500,144 @@ class KnowledgeBaseService
             ->get();
     }
 
-    public function addContent(array $data): bool
+    /**
+     * Obtener sugerencias de contenido relacionado
+     */
+    public function getRelatedContent(int $contentId, int $limit = 3): Collection
+    {
+        $originalContent = DB::table('knowledge_base')->find($contentId);
+
+        if (!$originalContent) {
+            return collect([]);
+        }
+
+        // Buscar contenido relacionado por categoría y departamento
+        return DB::table('knowledge_base')
+            ->where('id', '!=', $contentId)
+            ->where('is_active', true)
+            ->where(function($q) use ($originalContent) {
+                $q->where('category', $originalContent->category)
+                  ->orWhere('department', $originalContent->department);
+            })
+            ->orderBy('priority', 'desc')
+            ->limit($limit)
+            ->get();
+    }
+
+    /**
+     * Obtener estadísticas de la base de conocimientos - MEJORADAS
+     */
+    public function getStats(): array
+    {
+        $basicStats = [
+            'total_entries' => DB::table('knowledge_base')->where('is_active', true)->count(),
+            'by_category' => DB::table('knowledge_base')
+                ->where('is_active', true)
+                ->groupBy('category')
+                ->selectRaw('category, COUNT(*) as count')
+                ->pluck('count', 'category')
+                ->toArray(),
+            'by_department' => DB::table('knowledge_base')
+                ->where('is_active', true)
+                ->groupBy('department')
+                ->selectRaw('department, COUNT(*) as count')
+                ->pluck('count', 'department')
+                ->toArray(),
+            'by_priority' => DB::table('knowledge_base')
+                ->where('is_active', true)
+                ->groupBy('priority')
+                ->selectRaw('priority, COUNT(*) as count')
+                ->pluck('count', 'priority')
+                ->toArray()
+        ];
+
+        // Agregar estadísticas vectoriales si están disponibles
+        if ($this->vectorService && $this->vectorService->isHealthy()) {
+            try {
+                $vectorStats = $this->vectorService->getCollectionStats();
+                $basicStats['vector_index'] = [
+                    'total_indexed' => $vectorStats['total_points'] ?? 0,
+                    'indexing_status' => $vectorStats['collection_status'] ?? 'unknown',
+                    'semantic_search_enabled' => true
+                ];
+            } catch (\Exception $e) {
+                $basicStats['vector_index'] = [
+                    'total_indexed' => 0,
+                    'indexing_status' => 'error',
+                    'semantic_search_enabled' => false
+                ];
+            }
+        } else {
+            $basicStats['vector_index'] = [
+                'total_indexed' => 0,
+                'indexing_status' => 'unavailable',
+                'semantic_search_enabled' => false
+            ];
+        }
+
+        return $basicStats;
+    }
+
+    /**
+     * Verificar salud del servicio - MEJORADO
+     */
+    public function isHealthy(): bool
     {
         try {
-            $data['created_at'] = now();
-            $data['updated_at'] = now();
+            // Verificar acceso a la base de datos
+            $count = DB::table('knowledge_base')->where('is_active', true)->count();
 
-            if (isset($data['user_types']) && !is_string($data['user_types'])) {
-                $data['user_types'] = json_encode($data['user_types']);
-            }
+            // Verificar si hay contenido
+            $hasContent = $count > 0;
 
-            if (isset($data['keywords']) && !is_string($data['keywords'])) {
-                $data['keywords'] = json_encode($data['keywords']);
-            }
+            // Verificar servicio vectorial (opcional)
+            $vectorHealthy = $this->vectorService ? $this->vectorService->isHealthy() : true;
 
-            $id = DB::table('knowledge_base')->insertGetId($data);
-
-            // Invalidar cache relacionado
-            $this->invalidateRelatedCache($data['category'] ?? '', $data['department'] ?? '');
-
-            // Indexar en vectores si está disponible
-            if ($this->vectorService && $this->vectorService->isHealthy()) {
-                $this->indexNewContent($id);
-            }
-
-            return true;
+            return $hasContent && $vectorHealthy;
 
         } catch (\Exception $e) {
-            Log::error('Error adding knowledge base content: ' . $e->getMessage());
+            Log::error('Knowledge base health check failed: ' . $e->getMessage());
             return false;
         }
     }
 
     /**
-     * INVALIDAR CACHE RELACIONADO
+     * Buscar contenido por consultas frecuentes
      */
-    private function invalidateRelatedCache(string $category, string $department): void
+    public function searchFrequentQuestions(string $query): Collection
     {
-        // Por simplicidad, limpiar todo el cache de búsquedas
-        // En producción, implementar limpieza selectiva por patrón
-        Cache::flush();
+        $commonQuestions = [
+            'inscripción' => 'tramites',
+            'carrera' => 'oferta_educativa',
+            'titulación' => 'tramites',
+            'biblioteca' => 'servicios',
+            'sistema' => 'servicios',
+            'contacto' => 'informacion_general'
+        ];
+
+        foreach ($commonQuestions as $keyword => $category) {
+            if (str_contains(strtolower($query), $keyword)) {
+                return $this->getContentByCategory($category);
+            }
+        }
+
+        return collect([]);
     }
 
     /**
-     * INDEXAR NUEVO CONTENIDO EN VECTORES
+     * Método auxiliar para verificar si la búsqueda semántica está disponible
      */
-    private function indexNewContent(int $id): void
+    public function isSemanticSearchAvailable(): bool
     {
-        try {
-            $content = DB::table('knowledge_base')->find($id);
-            if ($content && $content->is_active) {
-                // Generar embedding y indexar
-                $combinedText = $content->title . "\n\n" . $content->content;
-                $embedding = $this->ollamaService->generateEmbedding($combinedText);
+        if (!$this->vectorService) {
+            return false;
+        }
 
-                if (!empty($embedding)) {
-                    // Código para indexar en Qdrant
-                    // Implementar según necesidades específicas
-                }
-            }
+        try {
+            $stats = $this->vectorService->getCollectionStats();
+            return ($stats['total_points'] ?? 0) > 0;
         } catch (\Exception $e) {
-            Log::warning("Failed to index new content {$id}: " . $e->getMessage());
+            return false;
         }
     }
 }

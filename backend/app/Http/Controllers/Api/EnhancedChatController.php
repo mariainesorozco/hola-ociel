@@ -1263,7 +1263,8 @@ class EnhancedChatController extends Controller
     public function performanceMetrics(): JsonResponse
     {
         try {
-            $metrics = $this->promptService->getPromptPerformanceMetrics();
+            // Generar métricas desde la base de datos directamente
+            $metrics = $this->generateBasicPerformanceMetrics();
 
             return response()->json([
                 'success' => true,
@@ -1281,6 +1282,149 @@ class EnhancedChatController extends Controller
         }
     }
 
+    /**
+     * Generar métricas básicas de rendimiento
+     */
+    private function generateBasicPerformanceMetrics(): array
+    {
+        // Métricas de los últimos 7 días
+        $startDate = now()->subDays(7);
+
+        // Métricas básicas de chat_interactions
+        $totalInteractions = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->count();
+
+        $averageConfidence = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->avg('confidence') ?? 0;
+
+        $averageResponseTime = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->avg('response_time') ?? 0;
+
+        $escalationRate = $totalInteractions > 0
+            ? (DB::table('chat_interactions')
+                ->where('created_at', '>=', $startDate)
+                ->where('requires_human_follow_up', true)
+                ->count() / $totalInteractions) * 100
+            : 0;
+
+        // Métricas por modelo usado
+        $modelUsage = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->select('model_used', DB::raw('count(*) as usage_count'), DB::raw('avg(confidence) as avg_confidence'))
+            ->groupBy('model_used')
+            ->get()
+            ->toArray();
+
+        // Métricas por tipo de usuario
+        $userTypeMetrics = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->select('user_type', DB::raw('count(*) as count'), DB::raw('avg(confidence) as avg_confidence'))
+            ->groupBy('user_type')
+            ->get()
+            ->toArray();
+
+        // Métricas diarias (últimos 7 días)
+        $dailyMetrics = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                DB::raw('count(*) as interactions'),
+                DB::raw('avg(confidence) as avg_confidence'),
+                DB::raw('avg(response_time) as avg_response_time')
+            )
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderBy('date')
+            ->get()
+            ->toArray();
+
+        return [
+            'period' => '7_days',
+            'summary' => [
+                'total_interactions' => $totalInteractions,
+                'average_confidence' => round($averageConfidence, 3),
+                'average_response_time_ms' => round($averageResponseTime, 0),
+                'escalation_rate_percent' => round($escalationRate, 1),
+                'success_rate_percent' => round((1 - ($escalationRate / 100)) * 100, 1)
+            ],
+            'model_performance' => $modelUsage,
+            'user_type_breakdown' => $userTypeMetrics,
+            'daily_trends' => $dailyMetrics,
+            'quality_indicators' => [
+                'high_confidence_rate' => $this->getHighConfidenceRate($startDate),
+                'positive_feedback_rate' => $this->getPositiveFeedbackRate($startDate),
+                'quick_response_rate' => $this->getQuickResponseRate($startDate)
+            ],
+            'system_health' => [
+                'ollama_available' => $this->ollamaService->isHealthy(),
+                'knowledge_base_healthy' => $this->knowledgeService->isHealthy(),
+                'semantic_search_enabled' => method_exists($this->knowledgeService, 'isSemanticSearchAvailable')
+                    ? $this->knowledgeService->isSemanticSearchAvailable()
+                    : false
+            ]
+        ];
+    }
+
+    /**
+     * Obtener tasa de alta confianza
+     */
+    private function getHighConfidenceRate(\Carbon\Carbon $startDate): float
+    {
+        $total = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->count();
+
+        if ($total === 0) return 0;
+
+        $highConfidence = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->where('confidence', '>=', 0.8)
+            ->count();
+
+        return round(($highConfidence / $total) * 100, 1);
+    }
+
+    /**
+     * Obtener tasa de feedback positivo
+     */
+    private function getPositiveFeedbackRate(\Carbon\Carbon $startDate): float
+    {
+        $totalWithFeedback = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->whereNotNull('was_helpful')
+            ->count();
+
+        if ($totalWithFeedback === 0) return 0;
+
+        $positive = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->where('was_helpful', true)
+            ->count();
+
+        return round(($positive / $totalWithFeedback) * 100, 1);
+    }
+
+    /**
+     * Obtener tasa de respuesta rápida
+     */
+    private function getQuickResponseRate(\Carbon\Carbon $startDate): float
+    {
+        $total = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->whereNotNull('response_time')
+            ->count();
+
+        if ($total === 0) return 0;
+
+        $quick = DB::table('chat_interactions')
+            ->where('created_at', '>=', $startDate)
+            ->where('response_time', '<=', 2000) // Menos de 2 segundos
+            ->count();
+
+        return round(($quick / $total) * 100, 1);
+    }
     /**
      * Endpoint para departamentos con información mejorada
      */
