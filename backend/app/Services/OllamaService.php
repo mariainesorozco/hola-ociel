@@ -116,9 +116,9 @@ class OllamaService
 
         // === CONTACTOS VERIFICADOS ===
         $prompt .= "CONTACTOS OFICIALES VERIFICADOS:\n";
-        $prompt .= "- DGSA (Servicios Académicos): 311-211-8800 ext. 8530\n";
-        $prompt .= "- DGS (Sistemas): 311-211-8800 ext. 8540\n";
-        $prompt .= "- Biblioteca: 311-211-8800 ext. 8600\n";
+        $prompt .= "- SA (Servicios Académicos): 311-211-8800 ext. 8803\n";
+        $prompt .= "- DGS (Sistemas): 311-211-8800 ext. 8640\n";
+        $prompt .= "- Biblioteca: 311-211-8800 ext. 8837\n";
         $prompt .= "- Información general: 311-211-8800\n";
         $prompt .= "- Sitio web: https://www.uan.edu.mx\n\n";
 
@@ -137,7 +137,7 @@ class OllamaService
         $prompt .= "- Requisito 2\n";
         $prompt .= "- Requisito 3\n\n";
         $prompt .= "El proceso es sencillo y puedes realizarlo en [ubicación].\n\n";
-        $prompt .= "📞 DGSA: 311-211-8800 ext. 8530\n\n";
+        $prompt .= "📞 SA: 311-211-8800 ext. 8803\n\n";
         $prompt .= "¿Necesitas información sobre algún requisito específico?\n\n";
 
         // === INSTRUCCIONES FINALES ===
@@ -145,7 +145,7 @@ class OllamaService
         $prompt .= "- Responde en español mexicano formal pero amigable\n";
         $prompt .= "- Usa SOLO UN emoji por línea de contacto: 📞 para teléfonos, 📧 para emails\n";
         $prompt .= "- NO repitas números de teléfono en la misma línea\n";
-        $prompt .= "- Formato de contacto: '📞 DGSA: 311-211-8800 ext. 8530' (sin duplicar números)\n";
+        $prompt .= "- Formato de contacto: '📞 SA: 311-211-8800 ext. 8803' (sin duplicar números)\n";
         $prompt .= "- Si no tienes información completa, deriva al contacto apropiado\n";
         $prompt .= "- Mantén siempre un tono profesional y empático\n";
         $prompt .= "- Termina con una pregunta de seguimiento cuando sea apropiado\n\n";
@@ -284,7 +284,7 @@ class OllamaService
                    "- Certificado de bachillerato\n" .
                    "- Aprobar examen de admisión\n" .
                    "- Completar documentación requerida\n\n" .
-                   "📞 DGSA: 311-211-8800 ext. 8530\n\n" .
+                   "📞 SA: 311-211-8800 ext. 8803\n\n" .
                    "¿Necesitas información sobre fechas de convocatoria?";
         }
 

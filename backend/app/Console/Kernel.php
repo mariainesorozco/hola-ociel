@@ -18,7 +18,11 @@ class Kernel extends ConsoleKernel
         Commands\DiagnoseOllama::class,
         Commands\ScrapeWebContent::class,
 
-        // Nuevos comandos para embeddings
+        // Comandos para PiiDA
+        Commands\ManagePiidaContent::class,
+        Commands\DiagnosePiidaSystem::class,
+
+        // Comandos para embeddings
         Commands\IndexKnowledgeBase::class,
         Commands\TestSemanticSearch::class,
 

@@ -42,7 +42,7 @@ Cada programa cuenta con planes de estudio actualizados y reconocimiento oficial
                 'department' => 'GENERAL',
                 'user_types' => json_encode(['student', 'public']),
                 'keywords' => json_encode(['carreras', 'licenciaturas', 'maestrías', 'doctorados', 'ingeniería', 'medicina', 'derecho', 'psicología']),
-                'contact_info' => 'DGSA: 311-211-8800 ext. 8530, Para información específica de cada carrera contactar la unidad académica correspondiente',
+                'contact_info' => 'SA: 311-211-8800 ext. 8803, Para información específica de cada carrera contactar la unidad académica correspondiente',
                 'priority' => 'high',
                 'is_active' => true,
                 'created_at' => now(),
@@ -75,10 +75,10 @@ Las convocatorias se publican generalmente:
 
 NOTA: Las fechas exactas varían cada año, siempre verificar en el sitio oficial.',
                 'category' => 'tramites',
-                'department' => 'DGSA',
+                'department' => 'SA',
                 'user_types' => json_encode(['student', 'public']),
                 'keywords' => json_encode(['inscripción', 'admisión', 'examen', 'EXANI', 'convocatoria', 'requisitos']),
-                'contact_info' => 'DGSA: 311-211-8800 ext. 8530, Sitio web: https://www.uan.edu.mx',
+                'contact_info' => 'SA: 311-211-8800 ext. 8803, Sitio web: https://www.piida.edu.mx, https://admision.uan.mx/',
                 'priority' => 'high',
                 'is_active' => true,
                 'created_at' => now(),
@@ -127,33 +127,20 @@ Sábados: 8:00 a 14:00 horas',
                 'content' => 'La DGS proporciona soporte tecnológico integral a la comunidad universitaria:
 
 SERVICIOS PARA ESTUDIANTES:
-• Activación y soporte del correo institucional (@uan.edu.mx)
-• Acceso a plataformas educativas (Moodle, Microsoft Teams)
-• Soporte técnico para equipos en laboratorios
-• Acceso a software especializado
-• Conectividad wifi en todo el campus
+• Acceso a plataformas educativas (PiiDA)
 
 SERVICIOS PARA EMPLEADOS:
-• Cuentas de correo institucional
 • Acceso a sistemas administrativos
-• Soporte técnico especializado
-• Mantenimiento de equipos institucionales
-
-PLATAFORMAS PRINCIPALES:
-• PiiDA: Sistema integral de administración
-• Moodle: Plataforma educativa
-• Portal UAN: Servicios en línea
-• Biblioteca Digital
 
 HORARIO DE ATENCIÓN:
-Lunes a viernes: 8:00 a 15:00 horas
+Lunes a viernes: 8:00 a 20:00 horas
 
 Para soporte urgente, también disponible vía correo electrónico.',
                 'category' => 'servicios',
                 'department' => 'DGS',
                 'user_types' => json_encode(['student', 'employee']),
                 'keywords' => json_encode(['sistemas', 'correo', 'plataformas', 'soporte', 'wifi', 'Moodle', 'PiiDA']),
-                'contact_info' => 'DGS: 311-211-8800 ext. 8540, sistemas@uan.edu.mx',
+                'contact_info' => 'DGS: 311-211-8800 ext. 8640, dgs@uan.edu.mx',
                 'priority' => 'medium',
                 'is_active' => true,
                 'created_at' => now(),
@@ -191,10 +178,10 @@ DOCUMENTACIÓN REQUERIDA:
 
 El proceso puede tardar entre 2 a 6 meses dependiendo de la modalidad elegida.',
                 'category' => 'tramites',
-                'department' => 'DGSA',
+                'department' => 'SA',
                 'user_types' => json_encode(['student']),
                 'keywords' => json_encode(['titulación', 'tesis', 'tesina', 'examen', 'egreso', 'modalidades', 'servicio social']),
-                'contact_info' => 'DGSA: 311-211-8800 ext. 8530',
+                'contact_info' => 'SA: 311-211-8800 ext. 8803',
                 'priority' => 'high',
                 'is_active' => true,
                 'created_at' => now(),
@@ -421,7 +408,7 @@ BECAS DISPONIBLES:
                 'department' => 'GENERAL',
                 'user_types' => json_encode(['student', 'public']),
                 'keywords' => json_encode(['posgrado', 'maestría', 'doctorado', 'especialidad', 'CONACYT', 'investigación']),
-                'contact_info' => 'Coordinación de Posgrado: 311-211-8800, DGSA: ext. 8530',
+                'contact_info' => 'Coordinación de Posgrado: 311-211-8800, SA: ext. 8803',
                 'priority' => 'high',
                 'is_active' => true,
                 'created_at' => now(),
@@ -466,7 +453,7 @@ APOYOS DISPONIBLES:
 PROCESO:
 Las convocatorias se publican generalmente en febrero y agosto.',
                 'category' => 'servicios',
-                'department' => 'DGSA',
+                'department' => 'SA',
                 'user_types' => json_encode(['student']),
                 'keywords' => json_encode(['intercambio', 'movilidad', 'internacional', 'ECOES', 'ANUIES', 'estancias']),
                 'contact_info' => 'Coordinación de Intercambio Académico: 311-211-8800 ext. 8530',
@@ -516,7 +503,7 @@ PROCESO:
 
 La liberación del servicio social es requisito indispensable para titulación.',
                 'category' => 'tramites',
-                'department' => 'DGSA',
+                'department' => 'SA',
                 'user_types' => json_encode(['student']),
                 'keywords' => json_encode(['servicio social', 'liberación', '480 horas', 'titulación', 'requisito', 'comunidad']),
                 'contact_info' => 'Coordinación de Servicio Social: 311-211-8800 ext. 8530',

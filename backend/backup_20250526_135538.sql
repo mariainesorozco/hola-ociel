@@ -1,4 +1,4 @@
-/*M!999999\- enable the sandbox mode */ 
+/*M!999999\- enable the sandbox mode */
 -- MariaDB dump 10.19-11.7.2-MariaDB, for osx10.19 (arm64)
 --
 -- Host: localhost    Database: hola_ociel

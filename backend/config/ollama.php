@@ -156,7 +156,7 @@ return [
         ],
         'escalation_departments' => [
             'legal' => ['JURIDICO', 'SECRETARIA_GENERAL'],
-            'academic' => ['DGSA'],
+            'academic' => ['SA'],
             'technical' => ['DGS'],
             'administrative' => ['SECRETARIA_GENERAL'],
             'financial' => ['ADMINISTRACION']

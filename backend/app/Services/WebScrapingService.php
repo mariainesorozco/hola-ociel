@@ -31,12 +31,12 @@ class WebScrapingService
         // URLs oficiales de la UAN para scraping
         $this->baseUrls = [
             'main' => 'https://www.uan.edu.mx',
-            'admissions' => 'https://www.uan.edu.mx/admisiones',
-            'academic' => 'https://www.uan.edu.mx/oferta-educativa',
-            'services' => 'https://www.uan.edu.mx/servicios',
-            'tramites' => 'https://www.uan.edu.mx/tramites',
-            'dgsa' => 'https://dgsa.uan.edu.mx',
-            'sistemas' => 'https://sistemas.uan.edu.mx'
+            'admissions' => 'https://admision.uan.mx/',
+            'academic' => 'https://www.uan.edu.mx/es/oferta',
+            'services' => 'https://piida.uan.mx/servicios',
+            'tramites' => 'https://piida.uan.mx/servicios',
+            'sa' => 'https://piida.uan.mx/',
+            'sistemas' => 'https://piida.uan.mx/'
         ];
     }
 
@@ -304,7 +304,7 @@ class WebScrapingService
             'academic' => 'oferta_educativa',
             'services' => 'servicios',
             'sistemas' => 'sistemas',
-            'dgsa' => 'tramites'
+            'sa' => 'tramites'
         ];
 
         return $sourceCategories[$source] ?? 'informacion_general';
@@ -461,8 +461,8 @@ class WebScrapingService
     private function getDepartmentFromSource(string $source): string
     {
         $departments = [
-            'admissions' => 'DGSA',
-            'dgsa' => 'DGSA',
+            'admissions' => 'SA',
+            'sa' => 'SA',
             'sistemas' => 'DGS',
             'academic' => 'GENERAL',
             'services' => 'GENERAL'

@@ -176,15 +176,15 @@ Como experto en procedimientos universitarios, proporciona:
 
 ESTRUCTURA OBLIGATORIA:
 1. Confirmación del trámite solicitado
-2. Requisitos principales (máximo 5 puntos)
-3. Proceso paso a paso (máximo 4 pasos)
+2. Requisitos principales (máximo 10 puntos)
+3. Proceso paso a paso (máximo 10 pasos)
 4. Información de contacto específica
 5. Tiempo estimado si está disponible
 
 FORMATO DE RESPUESTA:
 - Párrafos cortos y directos
 - Listas con guiones simples (-)
-- UN contacto específico por respuesta
+- Un contacto específico por respuesta
 - Lenguaje claro sin tecnicismos innecesarios",
 
             'informacion_carrera' => "🎓 ESPECIALIZACIÓN EN OFERTA ACADÉMICA:
@@ -500,8 +500,8 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
     private function getRelevantContactInfo(string $queryType): string
     {
         $contactMapping = [
-            'tramite_especifico' => "📞 DGSA: 311-211-8800 ext. 8530",
-            'soporte_tecnico' => "💻 DGS: 311-211-8800 ext. 8540",
+            'tramite_especifico' => "📞 Secretaría Académica: 311-211-8800 ext. 8803",
+            'soporte_tecnico' => "💻 DGS: 311-211-8800 ext. 8640",
             'informacion_carrera' => "📞 Información general: 311-211-8800",
             'servicio_universitario' => "📞 UAN: 311-211-8800"
         ];

@@ -45,9 +45,42 @@ return [
     ],
     'qdrant' => [
         'url' => env('QDRANT_URL', 'http://localhost:6333'),
-        'collection' => env('QDRANT_COLLECTION', 'uan_knowledge'),
-        'vector_size' => env('QDRANT_VECTOR_SIZE', 768), // Para nomic-embed-text
+        'collection' => env('QDRANT_COLLECTION', 'uan_piida_knowledge'),
+        'vector_size' => env('QDRANT_VECTOR_SIZE', 768),
+        'distance_metric' => env('QDRANT_DISTANCE', 'Cosine'),
         'timeout' => env('QDRANT_TIMEOUT', 30),
-        'retry_attempts' => env('QDRANT_RETRY_ATTEMPTS', 3),
+        'api_key' => env('QDRANT_API_KEY', null), // Para Qdrant Cloud
     ],
+    'piida' => [
+        'base_url' => env('PIIDA_BASE_URL', 'https://piida.uan.mx'),
+        'api_timeout' => env('PIIDA_API_TIMEOUT', 30),
+        'scraping_delay' => env('PIIDA_SCRAPING_DELAY', 2), // segundos entre requests
+        'categories' => [
+            'tramites_estudiantes' => 'Trámites para Estudiantes',
+            'tramites_docentes' => 'Trámites para Docentes',
+            'servicios_academicos' => 'Servicios Académicos',
+            'normatividad' => 'Normatividad Universitaria',
+            'directorio' => 'Directorio de Dependencias',
+            'eventos' => 'Eventos y Convocatorias',
+            'recursos_digitales' => 'Recursos Digitales',
+        ],
+        'user_types_mapping' => [
+            'student' => ['tramites_estudiantes', 'servicios_academicos', 'recursos_digitales'],
+            'employee' => ['tramites_docentes', 'servicios_academicos', 'normatividad', 'directorio'],
+            'public' => ['servicios_academicos', 'directorio', 'eventos']
+        ]
+    ],
+    'web_scraping' => [
+        'user_agent' => env('SCRAPING_USER_AGENT', 'UAN-Ociel-Bot/2.0 (Contact: sistemas@uan.edu.mx; AI Assistant)'),
+        'concurrent_requests' => env('SCRAPING_CONCURRENT', 3),
+        'retry_attempts' => env('SCRAPING_RETRIES', 3),
+        'cache_duration' => env('SCRAPING_CACHE_HOURS', 24), // horas
+        'allowed_domains' => [
+            'piida.uan.mx',
+            'www.uan.edu.mx',
+            'admision.uan.mx',
+            'dgsa.uan.edu.mx',
+            'sistemas.uan.edu.mx'
+        ]
+    ]
 ];

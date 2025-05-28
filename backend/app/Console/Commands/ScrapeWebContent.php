@@ -78,12 +78,12 @@ class ScrapeWebContent extends Command
     {
         $urls = [
             'main' => 'https://www.uan.edu.mx',
-            'admissions' => 'https://www.uan.edu.mx/admisiones',
-            'academic' => 'https://www.uan.edu.mx/oferta-educativa',
-            'services' => 'https://www.uan.edu.mx/servicios',
-            'tramites' => 'https://www.uan.edu.mx/tramites',
-            'dgsa' => 'https://dgsa.uan.edu.mx',
-            'sistemas' => 'https://sistemas.uan.edu.mx'
+            'admissions' => 'https://admision.uan.mx/',
+            'academic' => 'https://www.uan.edu.mx/es/oferta',
+            'services' => 'https://piida.uan.mx/servicios',
+            'tramites' => 'https://piida.uan.mx/servicios',
+            'sa' => 'https://piida.uan.mx/',
+            'sistemas' => 'https://piida.uan.mx/'
         ];
 
         if (!isset($urls[$source])) {
@@ -97,12 +97,12 @@ class ScrapeWebContent extends Command
     {
         return [
             ['main', 'https://www.uan.edu.mx'],
-            ['admissions', 'https://www.uan.edu.mx/admisiones'],
-            ['academic', 'https://www.uan.edu.mx/oferta-educativa'],
-            ['services', 'https://www.uan.edu.mx/servicios'],
-            ['tramites', 'https://www.uan.edu.mx/tramites'],
-            ['dgsa', 'https://piida.uan.mx/servicios'],
-            ['sistemas', 'https://sistemas.uan.edu.mx']
+            ['admissions', 'https://admision.uan.mx/'],
+            ['academic', 'https://www.uan.edu.mx/es/oferta'],
+            ['services', 'https://piida.uan.mx/servicios'],
+            ['tramites', 'https://piida.uan.mx/servicios'],
+            ['sa', 'https://piida.uan.mx/'],
+            ['sistemas', 'https://piida.uan.mx/']
         ];
     }
 

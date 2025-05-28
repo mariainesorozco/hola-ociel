@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Exception;
 
 class ChatController extends Controller
 {
@@ -126,7 +127,7 @@ class ChatController extends Controller
                 ]
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Chat error: ' . $e->getMessage(), [
                 'message' => $message,
                 'user_type' => $userType,
@@ -395,7 +396,7 @@ class ChatController extends Controller
         if (str_contains($messageLower, 'inscripción') || str_contains($messageLower, 'admisión')) {
             $actions = [
                 'Revisar requisitos de admisión en el sitio web oficial',
-                'Contactar a DGSA para información específica sobre tu situación',
+                'Contactar a SA para información específica sobre tu situación',
                 'Verificar fechas de convocatoria vigentes',
                 'Preparar documentación requerida',
                 'Consultar el proceso de examen de admisión'
@@ -496,21 +497,21 @@ class ChatController extends Controller
 
         if (str_contains($messageLower, 'inscripción') || str_contains($messageLower, 'admisión')) {
             return [
-                'phone' => '311-211-8800 ext. 8530',
-                'email' => 'dgsa@uan.edu.mx',
-                'location' => 'Edificio de Rectoría, 2do piso',
-                'schedule' => 'Lunes a Viernes de 8:00 a 15:00 hrs',
-                'department' => 'DGSA - Dirección General de Servicios Académicos',
+                'phone' => '311-211-8800 ext. 8803',
+                'email' => 'academica@uan.edu.mx',
+                'location' => 'Edificio PiiDA',
+                'schedule' => 'Lunes a Viernes de 8:00 a 20:00 hrs',
+                'department' => 'SA - Secretaría Académica',
                 'type' => 'specific'
             ];
         }
 
         if (str_contains($messageLower, 'sistema') || str_contains($messageLower, 'técnico')) {
             return [
-                'phone' => '311-211-8800 ext. 8540',
-                'email' => 'sistemas@uan.edu.mx',
-                'location' => 'Edificio de Sistemas',
-                'schedule' => 'Lunes a Viernes de 8:00 a 15:00 hrs',
+                'phone' => '311-211-8800 ext. 8640',
+                'email' => 'dgs@uan.edu.mx',
+                'location' => 'Edificio de Finanzas, 2do piso',
+                'schedule' => 'Lunes a Viernes de 8:00 a 20:00 hrs',
                 'department' => 'DGS - Dirección General de Sistemas',
                 'type' => 'specific'
             ];
@@ -533,16 +534,16 @@ class ChatController extends Controller
     {
         $baseContext = [
             "La Universidad Autónoma de Nayarit (UAN) es una institución pública de educación superior fundada el 25 de abril de 1969, ubicada en la Ciudad de la Cultura 'Amado Nervo' en Tepic, Nayarit, México.",
-            "Ofrece más de 40 programas de licenciatura, 25 maestrías y 8 doctorados organizados en cuatro áreas del conocimiento: Ciencias Básicas e Ingenierías, Ciencias Sociales y Humanidades, Ciencias de la Salud, y Ciencias Biológico Agropecuarias y Pesqueras.",
+            "Ofrece más de 40 programas de licenciatura, 25 maestrías y 8 doctorados organizados en cuatro áreas del conocimiento: Artes, Ciencias Básicas e Ingenierías, Ciencias Sociales y Humanidades, Ciencias de la Salud, Ciencias Económicas y Administrativas y Ciencias Biológico Agropecuarias y Pesqueras.",
         ];
 
         // Contexto específico por tipo de usuario
         if ($userType === 'student') {
             $baseContext[] = "Como estudiante de la UAN tienes acceso a servicios de biblioteca, laboratorios, centro de cómputo, servicios médicos, actividades culturales y deportivas.";
-            $baseContext[] = "Para trámites académicos contacta a la DGSA al 311-211-8800 ext. 8530. Para soporte técnico contacta a Sistemas ext. 8540.";
+            $baseContext[] = "Para trámites académicos contacta a la SA al 311-211-8800 ext. 8803.";
         } elseif ($userType === 'employee') {
             $baseContext[] = "Como empleado universitario tienes acceso a servicios institucionales, capacitación, desarrollo profesional y beneficios laborales.";
-            $baseContext[] = "Para consultas administrativas contacta a la Secretaría General al 311-211-8800 ext. 8510.";
+            $baseContext[] = "Para consultas administrativas contacta a la Secretaría de Administración al 311-211-8800 ext. 8900.";
         } else {
             $baseContext[] = "Ofrecemos información sobre admisión, oferta educativa, servicios públicos y eventos institucionales.";
             $baseContext[] = "Contacto principal: 311-211-8800. Sitio web: https://www.uan.edu.mx";
@@ -720,14 +721,14 @@ class ChatController extends Controller
                     substr($context[0], 0, 300) . "...\n\n" .
                     "📞 **Más información:**\n" .
                     "• Tel: 311-211-8800\n" .
-                    "• Web: https://www.uan.edu.mx/oferta-educativa";
+                    "• Web: https://www.uan.edu.mx/es/oferta";
             }
             return "🎓 **Carreras en la UAN**\n\n" .
                 "📋 **¡Tenemos más de 40 programas para ti!**\n" .
                 "La UAN ofrece licenciaturas en diversas áreas del conocimiento.\n\n" .
                 "📞 **Información detallada:**\n" .
                 "• Tel: 311-211-8800\n" .
-                "• Web: https://www.uan.edu.mx/oferta-educativa";
+                "• Web: https://www.uan.edu.mx/es/licenciaturas";
         }
 
         if (str_contains($message, 'inscripción') || str_contains($message, 'admisión')) {
@@ -735,40 +736,39 @@ class ChatController extends Controller
                 return "📝 **Proceso de Inscripción**\n\n" .
                     "📋 **Información:**\n" .
                     substr($context[0], 0, 300) . "...\n\n" .
-                    "📞 **DGAE - Servicios Académicos:**\n" .
-                    "• Tel: 311-211-8800 ext. 8530\n" .
-                    "• Email: dgae@uan.edu.mx";
+                    "📞 **SA - Secretaría Académica:**\n" .
+                    "• Tel: 311-211-8800 ext. 8803\n" .
+                    "• Email: academica@uan.edu.mx";
             }
             return "📝 **Inscripciones UAN**\n\n" .
                 "📋 **Requisitos principales:**\n" .
-                "• Certificado de bachillerato\n" .
-                "• Aprobar examen de admisión\n" .
-                "• Completar proceso en línea\n\n" .
-                "📞 **DGAE:**\n" .
-                "• Tel: 311-211-8800 ext. 8530\n" .
-                "• Email: dgae@uan.edu.mx";
+                "• Solicitud de examen impresa y llenada correctamente\n" .
+                "• Recibo de pago original\n" .
+                "• Constancia original con promedio general\n\n" .
+                "• Copia legible de tu CURP\n\n" .
+                "📞 **SA:**\n" .
+                "• Tel: 311-211-8800 ext. 8803\n" .
+                "• Email: academica@uan.edu.mx";
         }
 
         if (str_contains($message, 'biblioteca')) {
             return "📚 **Sistema Bibliotecario UAN**\n\n" .
                 "📋 **Servicios disponibles:**\n" .
                 "• Préstamo de libros\n" .
-                "• Consulta en línea\n" .
+                "• Préstamo de Equipos de Cómputo\n" .
                 "• Espacios de estudio\n" .
                 "• Wifi gratuito\n\n" .
-                "📞 **Biblioteca Central:**\n" .
-                "• Tel: 311-211-8800 ext. 8600";
+                "📞 **Biblioteca Magna:**\n" .
+                "• Tel: 311-211-8800 ext. 8837";
+                "• Email: biblioteca@uan.edu.mx";
         }
 
         if (str_contains($message, 'sistema') || str_contains($message, 'correo')) {
             return "💻 **Soporte Técnico UAN**\n\n" .
                 "📋 **Servicios:**\n" .
-                "• Soporte técnico\n" .
-                "• Correo institucional\n" .
                 "• Plataformas educativas\n" .
-                "• Infraestructura de red\n\n" .
                 "📞 **Dirección General de Sistemas:**\n" .
-                "• Tel: 311-211-8800 ext. 8540\n" .
+                "• Tel: 311-211-8800 ext. 8640\n" .
                 "• Email: dgs@uan.edu.mx";
         }
 
@@ -975,7 +975,7 @@ class ChatController extends Controller
                     'service_url' => config('services.ollama.url')
                 ]
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $health['components']['ollama'] = [
                 'status' => 'unhealthy',
                 'error' => 'Ollama service check failed'

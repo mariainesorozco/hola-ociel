@@ -506,15 +506,15 @@ class EnhancedChatController extends Controller
     {
         $templates = [
             'tramite_especifico' => [
-                'response' => "📋 **INFORMACIÓN DE TRÁMITES UAN**\n\nPara obtener información específica sobre el trámite que necesitas, te recomiendo contactar directamente a:\n\n🏛️ **DGSA (Dirección General de Servicios Académicos)**\n📞 Teléfono: 311-211-8800 ext. 8530\n📧 Email: dgsa@uan.edu.mx\n📍 Ubicación: Edificio de Rectoría, 2do piso\n⏰ Horario: Lunes a Viernes de 8:00 a 15:00 hrs\n\n✅ **Te pueden ayudar con:**\n• Procesos de inscripción\n• Trámites de titulación\n• Certificados y constancias\n• Revalidación de estudios\n• Control escolar\n\n🚀 **Siguiente paso:** Contacta directamente para obtener información actualizada y específica para tu situación.",
+                'response' => "📋 **INFORMACIÓN DE TRÁMITES UAN**\n\nPara obtener información específica sobre el trámite que necesitas, te recomiendo contactar directamente a:\n\n🏛️ **SA (Secretaría Académica)**\n📞 Teléfono: 311-211-8803 ext. 8530\n📧 Email: academica@uan.edu.mx\n📍 Ubicación: Edificio PiiDA\n⏰ Horario: Lunes a Viernes de 8:00 a 20:00 hrs\n\n✅ **Te pueden ayudar con:**\n• Procesos de inscripción\n• Trámites de titulación\n• Certificados y constancias\n• Revalidación de estudios\n• Control escolar\n\n🚀 **Siguiente paso:** Contacta directamente para obtener información actualizada y específica para tu situación.",
                 'confidence' => 0.8
             ],
             'informacion_carrera' => [
-                'response' => "🎓 **OFERTA EDUCATIVA UAN**\n\nLa Universidad Autónoma de Nayarit ofrece más de 40 programas de licenciatura en diversas áreas del conocimiento:\n\n📚 **Áreas disponibles:**\n• Ciencias Básicas e Ingenierías\n• Ciencias Sociales y Humanidades\n• Ciencias de la Salud\n• Ciencias Biológico Agropecuarias y Pesqueras\n\n📞 **Para información detallada:**\n• Teléfono general: 311-211-8800\n• Portal web: https://www.uan.edu.mx/oferta-educativa\n• DGSA: 311-211-8800 ext. 8530\n\n🎯 **Te recomendamos:** Visitar nuestras instalaciones y conocer de cerca los programas que te interesan.",
+                'response' => "🎓 **OFERTA EDUCATIVA UAN**\n\nLa Universidad Autónoma de Nayarit ofrece más de 40 programas de licenciatura en diversas áreas del conocimiento:\n\n📚 **Áreas disponibles:**\n• Ciencias Básicas e Ingenierías\n• Ciencias Sociales y Humanidades\n• Ciencias de la Salud\n• Ciencias Biológico Agropecuarias y Pesqueras\n\n📞 **Para información detallada:**\n• Teléfono general: 311-211-8800\n• Portal web: https://www.uan.edu.mx/es/oferta\n• SA: 311-211-8800 ext. 8803\n\n🎯 **Te recomendamos:** Visitar nuestras instalaciones y conocer de cerca los programas que te interesan.",
                 'confidence' => 0.85
             ],
             'soporte_tecnico' => [
-                'response' => "💻 **SOPORTE TÉCNICO UAN**\n\nPara resolver problemas técnicos y de sistemas:\n\n🏛️ **Dirección General de Sistemas (DGS)**\n📞 Teléfono: 311-211-8800 ext. 8540\n📧 Email: sistemas@uan.edu.mx\n📍 Ubicación: Edificio de Sistemas\n⏰ Horario: Lunes a Viernes de 8:00 a 15:00 hrs\n\n🔧 **Servicios disponibles:**\n• Soporte técnico general\n• Problemas de acceso a plataformas\n• Correo electrónico institucional\n• Infraestructura de red\n• Desarrollo de sistemas\n\n💡 **Recomendación:** Contacta directamente para asistencia especializada.",
+                'response' => "💻 **SOPORTE TÉCNICO UAN**\n\nPara resolver problemas técnicos de las plataformas institucionales:\n\n🏛️ **Dirección General de Sistemas (DGS)**\n📞 Teléfono: 311-211-8800 ext. 8640\n📧 Email: dgs@uan.edu.mx\n📍 Ubicación: Edificio de Finanzas, 2do. piso\n⏰ Horario: Lunes a Viernes de 8:00 a 20:00 hrs\n\n🔧 **Servicios disponibles:**\n• Problemas de acceso a plataformas\n• Desarrollo de sistemas\n\n💡 **Recomendación:** Contacta directamente para asistencia especializada.",
                 'confidence' => 0.9
             ]
         ];
@@ -729,16 +729,16 @@ class EnhancedChatController extends Controller
         // Información específica por tipo de consulta
         $contactMapping = [
             'tramite_especifico' => [
-                'primary' => ['name' => 'DGSA', 'phone' => '311-211-8800 ext. 8530', 'email' => 'dgsa@uan.edu.mx'],
-                'secondary' => ['name' => 'Información General', 'phone' => '311-211-8800']
+                'primary' => ['name' => 'SA', 'phone' => '311-211-8800 ext. 8803', 'email' => 'academica@uan.edu.mx'],
+                'secondary' => ['name' => 'Información Académica', 'phone' => '311-211-8800']
             ],
             'soporte_tecnico' => [
                 'primary' => ['name' => 'DGS - Sistemas', 'phone' => '311-211-8800 ext. 8540', 'email' => 'sistemas@uan.edu.mx'],
-                'secondary' => ['name' => 'Mesa de Ayuda', 'phone' => '311-211-8800 ext. 8541']
+                'secondary' => ['name' => 'Ayuda técnica plaformas institucionales', 'phone' => '311-211-8800 ext. 8640']
             ],
             'informacion_carrera' => [
                 'primary' => ['name' => 'Información General', 'phone' => '311-211-8800'],
-                'secondary' => ['name' => 'DGSA', 'phone' => '311-211-8800 ext. 8530']
+                'secondary' => ['name' => 'SA', 'phone' => '311-211-8800 ext. 8803']
             ]
         ];
 
@@ -748,7 +748,7 @@ class EnhancedChatController extends Controller
         ];
 
         // Agregar información de horarios y ubicación
-        $contacts['hours'] = 'Lunes a Viernes de 8:00 a 15:00 hrs';
+        $contacts['hours'] = 'Lunes a Viernes de 8:00 a 20:00 hrs';
         $contacts['location'] = 'Ciudad de la Cultura "Amado Nervo", Tepic, Nayarit';
 
         return $contacts;
@@ -766,7 +766,7 @@ class EnhancedChatController extends Controller
         switch ($queryType) {
             case 'tramite_especifico':
                 $actions = [
-                    ['type' => 'contact', 'text' => 'Contactar a DGSA para información específica', 'priority' => 'high'],
+                    ['type' => 'contact', 'text' => 'Contactar a SA para información específica', 'priority' => 'high'],
                     ['type' => 'document', 'text' => 'Preparar documentación requerida', 'priority' => 'medium'],
                     ['type' => 'visit', 'text' => 'Agendar cita presencial si es necesario', 'priority' => 'medium'],
                     ['type' => 'web', 'text' => 'Consultar portal de servicios estudiantiles', 'priority' => 'low']
@@ -1145,10 +1145,10 @@ class EnhancedChatController extends Controller
     private function getRecommendedDepartment(string $queryType): ?string
     {
         $departmentMapping = [
-            'tramite_especifico' => 'DGSA',
+            'tramite_especifico' => 'SA',
             'soporte_tecnico' => 'DGS',
             'queja_problema' => 'SECRETARIA_GENERAL',
-            'informacion_carrera' => 'DGSA',
+            'informacion_carrera' => 'SA',
             'servicios' => 'GENERAL'
         ];
 

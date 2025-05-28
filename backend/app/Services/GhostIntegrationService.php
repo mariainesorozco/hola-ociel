@@ -372,7 +372,7 @@ El resumen debe:
         $tagNames = array_map(fn($tag) => strtolower($tag['name'] ?? ''), $tags);
 
         $departmentMapping = [
-            'DGSA' => ['dgsa', 'servicios-academicos', 'inscripcion', 'titulacion', 'control-escolar'],
+            'SA' => ['sa', 'servicios-academicos', 'inscripcion', 'titulacion', 'control-escolar'],
             'DGS' => ['sistemas', 'tecnologia', 'plataforma', 'correo', 'soporte'],
             'BIBLIOTECA' => ['biblioteca', 'libros', 'acervo', 'consulta'],
             'VINCULACION' => ['vinculacion', 'empresa', 'egresados', 'bolsa-trabajo'],
@@ -401,7 +401,7 @@ El resumen debe:
 
         // Mapeo por categoría
         $categoryToDepartment = [
-            'tramites' => 'DGSA',
+            'tramites' => 'SA',
             'servicios' => 'GENERAL',
             'sistemas' => 'DGS',
             'investigacion' => 'INVESTIGACION'

@@ -254,10 +254,10 @@ return new class extends Migration
                 'short_name' => 'Sistemas',
                 'description' => 'Responsable de los sistemas de información y tecnología',
                 'type' => 'dependencia',
-                'contact_phone' => '311-211-8800 ext. 8540',
+                'contact_phone' => '311-211-8800 ext. 8640',
                 'contact_email' => 'dgs@uan.edu.mx',
-                'location' => 'Edificio de Sistemas',
-                'schedule' => 'Lunes a Viernes de 8:00 a 15:00 hrs',
+                'location' => 'Edificio de Finanzas, 2do piso',
+                'schedule' => 'Lunes a Viernes de 8:00 a 20:00 hrs',
                 'services' => json_encode([
                     'Desarrollo de sistemas',
                     'Infraestructura tecnológica',
@@ -272,21 +272,21 @@ return new class extends Migration
                 'updated_at' => now()
             ],
             [
-                'code' => 'DGAE',
-                'name' => 'Dirección General de Administración Escolar',
-                'short_name' => 'DGAE',
+                'code' => 'SA',
+                'name' => 'Secretaría Académica',
+                'short_name' => 'SA',
                 'description' => 'Servicios académicos y control escolar institucional',
                 'type' => 'dependencia',
-                'contact_phone' => '311-211-8800 ext. 8530',
-                'contact_email' => 'dgae@uan.edu.mx',
-                'location' => 'Edificio de Rectoría, 2do piso',
-                'schedule' => 'Lunes a Viernes de 8:00 a 15:00 hrs',
+                'contact_phone' => '311-211-8800 ext. 8803',
+                'contact_email' => 'academica@uan.edu.mx',
+                'location' => 'Edificio PiiDA',
+                'schedule' => 'Lunes a Viernes de 8:00 a 20:00 hrs',
                 'services' => json_encode([
                     'Control escolar',
                     'Servicios escolares',
                     'Titulación',
                     'Intercambio académico',
-                    'Certificación de estudios'
+                    'Certificado de estudios'
                 ]),
                 'head_name' => null,
                 'head_title' => null,
