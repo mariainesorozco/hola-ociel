@@ -206,7 +206,7 @@ class EnhancedChatController extends Controller
      */
     private function getIntelligentContext(string $message, string $userType, ?string $department): array
     {
-        // Cache basado en hash del mensaje para consultas similares
+        // Cache basado en hash del mensaje
         $cacheKey = 'context_' . md5(strtolower($message) . $userType . ($department ?? ''));
 
         if (Cache::has($cacheKey)) {
@@ -214,26 +214,275 @@ class EnhancedChatController extends Controller
             return Cache::get($cacheKey);
         }
 
-        // Búsqueda multicapa
+        Log::info('=== INICIANDO BÚSQUEDA DE CONTEXTO ===', [
+            'message' => $message,
+            'user_type' => $userType,
+            'department' => $department
+        ]);
+
+        $context = [];
+
         try {
-            // 1. Búsqueda semántica avanzada
-            $semanticResults = $this->knowledgeService->searchRelevantContent($message, $userType, $department);
+            // 1. VERIFICAR que tenemos contenido en la base de datos
+            $totalContent = DB::table('knowledge_base')->where('is_active', true)->count();
+            Log::info('Total contenido activo en BD:', ['count' => $totalContent]);
 
-            // 2. Búsqueda por patrones específicos
-            $patternResults = $this->searchByPatterns($message, $userType);
+            if ($totalContent === 0) {
+                Log::warning('❌ NO HAY CONTENIDO ACTIVO EN KNOWLEDGE_BASE');
+                return $this->getEmergencyContext($message);
+            }
 
-            // 3. Combinación inteligente de resultados
-            $combinedContext = $this->combineContextResults($semanticResults, $patternResults);
+            // 2. BÚSQUEDA DIRECTA usando KnowledgeBaseService
+            try {
+                $knowledgeResults = $this->knowledgeService->searchRelevantContent(
+                    $message,
+                    $userType,
+                    $department
+                );
 
-            // Cache por 5 minutos para consultas similares
-            Cache::put($cacheKey, $combinedContext, 300);
+                Log::info('Resultados KnowledgeBaseService:', [
+                    'count' => count($knowledgeResults),
+                    'first_result_preview' => !empty($knowledgeResults) ? substr($knowledgeResults[0], 0, 100) : 'ninguno'
+                ]);
 
-            return $combinedContext;
+                if (!empty($knowledgeResults)) {
+                    $context = array_merge($context, $knowledgeResults);
+                }
+            } catch (\Exception $e) {
+                Log::error('Error en KnowledgeBaseService: ' . $e->getMessage());
+            }
+
+            // 3. BÚSQUEDA DE RESPALDO DIRECTA EN BD si no tenemos resultados
+            if (empty($context)) {
+                Log::warning('KnowledgeBaseService no retornó resultados, buscando directamente en BD...');
+
+                $directResults = $this->searchDirectInDatabase($message, $userType);
+                Log::info('Búsqueda directa en BD:', ['count' => count($directResults)]);
+
+                $context = array_merge($context, $directResults);
+            }
+
+            // 4. BÚSQUEDA POR PALABRAS CLAVE si aún no hay resultados
+            if (empty($context)) {
+                Log::warning('Sin resultados aún, probando búsqueda por palabras clave...');
+
+                $keywordResults = $this->searchByKeywords($message, $userType);
+                Log::info('Búsqueda por keywords:', ['count' => count($keywordResults)]);
+
+                $context = array_merge($context, $keywordResults);
+            }
+
+            // 5. BÚSQUEDA VECTORIAL (si está disponible)
+            if (count($context) < 2 && method_exists($this->knowledgeService, 'isSemanticSearchAvailable')) {
+                try {
+                    if ($this->knowledgeService->isSemanticSearchAvailable()) {
+                        // Nota: En tu código actual, searchRelevantContent YA incluye búsqueda vectorial
+                        Log::info('Búsqueda vectorial disponible pero ya incluida en searchRelevantContent');
+                    }
+                } catch (\Exception $e) {
+                    Log::info('Búsqueda vectorial no disponible: ' . $e->getMessage());
+                }
+            }
+
+            // 6. ÚLTIMO RECURSO: Contenido genérico de ayuda
+            if (empty($context)) {
+                Log::warning('❌ NO SE ENCONTRÓ CONTEXTO, usando contenido genérico');
+                $context = $this->getGenericHelpContext();
+            }
+
+            // 7. PROCESAR Y LIMITAR resultados
+            $finalContext = $this->processContextResults($context);
+
+            Log::info('=== CONTEXTO FINAL ===', [
+                'total_items' => count($finalContext),
+                'message' => $message,
+                'preview' => !empty($finalContext) ? substr($finalContext[0], 0, 50) . '...' : 'vacío'
+            ]);
+
+            // Cache por 5 minutos
+            Cache::put($cacheKey, $finalContext, 300);
+
+            return $finalContext;
 
         } catch (\Exception $e) {
-            Log::error('Error getting intelligent context: ' . $e->getMessage());
+            Log::error('❌ ERROR CRÍTICO en getIntelligentContext: ' . $e->getMessage(), [
+                'message' => $message,
+                'stack_trace' => $e->getTraceAsString()
+            ]);
+
+            return $this->getEmergencyContext($message);
+        }
+    }
+
+    /**
+     * MÉTODO NUEVO: Búsqueda directa en base de datos
+     */
+    private function searchDirectInDatabase(string $message, string $userType): array
+    {
+        try {
+            $words = explode(' ', strtolower($message));
+            $searchWords = array_filter($words, fn($word) => strlen(trim($word)) > 2);
+
+            if (empty($searchWords)) {
+                return [];
+            }
+
+            $query = DB::table('knowledge_base')
+                ->where('is_active', true)
+                ->where(function($q) use ($searchWords) {
+                    foreach ($searchWords as $word) {
+                        $q->orWhere('title', 'LIKE', "%{$word}%")
+                        ->orWhere('content', 'LIKE', "%{$word}%");
+                    }
+                });
+
+            // Filtro por tipo de usuario si está disponible
+            if ($userType && $userType !== 'public') {
+                $query->where(function($q) use ($userType) {
+                    $q->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)])
+                    ->orWhereRaw('JSON_CONTAINS(user_types, ?)', [json_encode('public')]);
+                });
+            }
+
+            $results = $query->orderBy('priority', 'desc')
+                            ->orderBy('updated_at', 'desc')
+                            ->limit(5)
+                            ->get(['content', 'title', 'category']);
+
+            Log::info('Búsqueda directa ejecutada:', [
+                'search_words' => $searchWords,
+                'results_count' => $results->count(),
+                'first_title' => $results->first()->title ?? 'ninguno'
+            ]);
+
+            return $results->pluck('content')->toArray();
+
+        } catch (\Exception $e) {
+            Log::error('Error en búsqueda directa: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * MÉTODO NUEVO: Búsqueda por palabras clave específicas
+     */
+    private function searchByKeywords(string $message, string $userType): array
+    {
+        $messageLower = strtolower($message);
+
+        // Mapeo de palabras clave a búsquedas específicas
+        $keywordMappings = [
+            'correo' => ['correo', 'email', 'cuenta', 'usuario'],
+            'contraseña' => ['contraseña', 'password', 'clave', 'olvidé'],
+            'activar' => ['activar', 'activación', 'habilitar', 'crear'],
+            'sistema' => ['sistema', 'plataforma', 'acceso', 'login'],
+            'soporte' => ['soporte', 'ayuda', 'problema', 'error'],
+            'inscripción' => ['inscripción', 'inscribir', 'registro', 'matricula'],
+            'biblioteca' => ['biblioteca', 'libros', 'préstamo', 'acervo'],
+            'laboratorio' => ['laboratorio', 'lab', 'práctica', 'equipo']
+        ];
+
+        foreach ($keywordMappings as $category => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (str_contains($messageLower, $keyword)) {
+                    return $this->getContentByCategory($category, $userType);
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * MÉTODO NUEVO: Obtener contenido por categoría
+     */
+    private function getContentByCategory(string $category, string $userType): array
+    {
+        try {
+            $results = DB::table('knowledge_base')
+                ->where('is_active', true)
+                ->where(function($q) use ($category) {
+                    $q->where('category', 'LIKE', "%{$category}%")
+                    ->orWhere('title', 'LIKE', "%{$category}%")
+                    ->orWhere('content', 'LIKE', "%{$category}%");
+                })
+                ->orderBy('priority', 'desc')
+                ->limit(3)
+                ->get(['content']);
+
+            Log::info("Búsqueda por categoría '{$category}':", [
+                'results_count' => $results->count()
+            ]);
+
+            return $results->pluck('content')->toArray();
+
+        } catch (\Exception $e) {
+            Log::error("Error buscando categoría '{$category}': " . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * MÉTODO NUEVO: Contexto de emergencia cuando todo falla
+     */
+    private function getEmergencyContext(string $message): array
+    {
+        Log::warning('🚨 USANDO CONTEXTO DE EMERGENCIA');
+
+        return [
+            "Información de contacto general de la Universidad Autónoma de Nayarit:
+
+    Teléfono principal: 311-211-8800
+    Sitio web: https://www.uan.edu.mx
+    Dirección: Ciudad de la Cultura 'Amado Nervo', Tepic, Nayarit
+
+    Para soporte técnico y sistemas:
+    - DGS (Dirección General de Sistemas): Ext. 8640
+    - Soporte técnico: sistemas@uan.edu.mx
+
+    Para trámites académicos:
+    - SA (Servicios Académicos): Ext. 8803
+    - serviciosacademicos@uan.edu.mx"
+        ];
+    }
+
+    /**
+     * MÉTODO NUEVO: Contexto genérico de ayuda
+     */
+    private function getGenericHelpContext(): array
+    {
+        return [
+            "La Universidad Autónoma de Nayarit ofrece diversos servicios para estudiantes y personal académico. Para obtener información específica sobre trámites, servicios o procedimientos, puedes contactar directamente a:
+
+    • Información general: 311-211-8800
+    • Servicios Académicos: Ext. 8803
+    • Soporte de Sistemas: Ext. 8640
+    • Biblioteca: Ext. 8837
+
+    También puedes visitar el sitio web oficial: https://www.uan.edu.mx"
+        ];
+    }
+
+    /**
+     * MÉTODO NUEVO: Procesar resultados del contexto
+     */
+    private function processContextResults(array $context): array
+    {
+        // Eliminar duplicados
+        $unique = array_unique($context);
+
+        // Filtrar contenido muy corto
+        $filtered = array_filter($unique, fn($item) => strlen(trim($item)) > 50);
+
+        // Limitar a máximo 5 elementos
+        $limited = array_slice($filtered, 0, 5);
+
+        // Si no hay suficiente contenido, agregar ayuda genérica
+        if (count($limited) < 2) {
+            $limited = array_merge($limited, $this->getGenericHelpContext());
+        }
+
+        return array_values($limited);
     }
 
     /**

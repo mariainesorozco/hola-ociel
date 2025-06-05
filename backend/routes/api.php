@@ -1,18 +1,14 @@
 <?php
 
-use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\EnhancedChatController;
-use App\Http\Controllers\Api\AdminController;
-use App\Http\Controllers\Api\AnalyticsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes - ¡Hola Ociel! - MIGRACIÓN GRADUAL
+| API Routes - ¡Hola Ociel! - USANDO ENHANCED CONTROLLER
 |--------------------------------------------------------------------------
-| Estrategia: Mantener rutas existentes + Agregar nuevas versiones mejoradas
 */
 
 // Middleware de autenticación opcional para usuarios registrados
@@ -23,30 +19,31 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 Route::prefix('v1')->group(function () {
 
     // ========================================================================
-    // RUTAS EXISTENTES (MANTENER PARA COMPATIBILIDAD)
+    // RUTAS PRINCIPALES (USANDO EnhancedChatController)
     // ========================================================================
     Route::middleware(['throttle:chat'])->group(function () {
-        Route::post('/chat', [ChatController::class, 'chat'])
+        // CAMBIAR: Usar EnhancedChatController en lugar de ChatController
+        Route::post('/chat', [EnhancedChatController::class, 'chat'])
              ->name('api.chat');
 
-        Route::post('/chat/feedback', [ChatController::class, 'feedback'])
+        Route::post('/chat/feedback', [EnhancedChatController::class, 'enhancedFeedback'])
              ->middleware('throttle:feedback')
              ->name('api.chat.feedback');
     });
 
-    // ENDPOINTS DE INFORMACIÓN (sin rate limiting estricto)
+    // ENDPOINTS DE INFORMACIÓN
     Route::middleware(['throttle:api'])->group(function () {
-        Route::get('/departments', [ChatController::class, 'departments'])
+        Route::get('/departments', [EnhancedChatController::class, 'enhancedDepartments'])
              ->name('api.departments');
 
-        Route::get('/health', [ChatController::class, 'health'])
+        Route::get('/health', [EnhancedChatController::class, 'healthAdvanced'])
              ->name('api.health');
 
         Route::get('/ping', function () {
             return response()->json([
                 'status' => 'ok',
-                'service' => 'Hola Ociel API',
-                'version' => '1.2.0',
+                'service' => 'Enhanced Hola Ociel API',
+                'version' => '2.0.0',
                 'timestamp' => now()->toISOString(),
                 'server_time' => now()->format('Y-m-d H:i:s T')
             ]);
@@ -70,25 +67,228 @@ Route::prefix('v1')->group(function () {
         })->name('api.university-info');
     });
 
-    // ENDPOINTS DE BÚSQUEDA AVANZADA
+    // ENDPOINTS DE BÚSQUEDA (Implementar métodos simples en EnhancedChatController)
     Route::middleware(['throttle:search'])->group(function () {
-        Route::post('/search/knowledge', [ChatController::class, 'searchKnowledge'])
-             ->name('api.search.knowledge');
+        // Implementar estos métodos básicos en EnhancedChatController
+        Route::post('/search/knowledge', function(Request $request) {
+            // Búsqueda simple por ahora
+            return response()->json([
+                'success' => true,
+                'data' => [],
+                'message' => 'Búsqueda en desarrollo'
+            ]);
+        })->name('api.search.knowledge');
 
-        Route::get('/search/categories', [ChatController::class, 'getCategories'])
-             ->name('api.search.categories');
+        Route::get('/search/categories', function() {
+            // Categorías básicas
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'tramites_estudiantes',
+                    'servicios_academicos',
+                    'oferta_educativa',
+                    'directorio',
+                    'informacion_general'
+                ]
+            ]);
+        })->name('api.search.categories');
 
-        Route::get('/search/frequent-questions', [ChatController::class, 'getFrequentQuestions'])
-             ->name('api.search.frequent-questions');
+        Route::get('/search/frequent-questions', function() {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    ['question' => '¿Cómo me inscribo?', 'category' => 'tramites_estudiantes'],
+                    ['question' => '¿Qué carreras hay?', 'category' => 'oferta_educativa'],
+                    ['question' => '¿Dónde está la biblioteca?', 'category' => 'servicios_academicos']
+                ]
+            ]);
+        })->name('api.search.frequent-questions');
+    });
+
+    // ========================================================================
+    // RUTAS DE DEBUG - AGREGAR ESTA SECCIÓN
+    // ========================================================================
+    Route::prefix('debug')->group(function () {
+
+        // Test básico - verificar que funciona
+        Route::get('/test', function() {
+            return response()->json([
+                'status' => 'debug_routes_working',
+                'message' => 'Rutas de debug funcionando correctamente',
+                'timestamp' => now()->toISOString(),
+                'environment' => app()->environment()
+            ]);
+        });
+
+        // Test de knowledge base
+        Route::get('/knowledge-test', function(Request $request) {
+            $query = $request->get('q', 'correo');
+
+            try {
+                // 1. Verificar contenido en BD
+                $totalContent = DB::table('knowledge_base')->count();
+                $activeContent = DB::table('knowledge_base')->where('is_active', true)->count();
+
+                // 2. Búsqueda directa
+                $directSearch = DB::table('knowledge_base')
+                    ->where('is_active', true)
+                    ->where(function($q) use ($query) {
+                        $q->where('title', 'LIKE', "%{$query}%")
+                          ->orWhere('content', 'LIKE', "%{$query}%");
+                    })
+                    ->limit(5)
+                    ->get(['id', 'title', 'category', 'department']);
+
+                // 3. Test KnowledgeBaseService
+                $knowledgeServiceResult = null;
+                try {
+                    $knowledgeService = app(\App\Services\KnowledgeBaseService::class);
+                    $serviceResults = $knowledgeService->searchRelevantContent($query, 'student');
+                    $knowledgeServiceResult = [
+                        'available' => true,
+                        'healthy' => $knowledgeService->isHealthy(),
+                        'results_count' => count($serviceResults),
+                        'results_preview' => array_map(fn($r) => substr($r, 0, 100) . '...', array_slice($serviceResults, 0, 2))
+                    ];
+                } catch (Exception $e) {
+                    $knowledgeServiceResult = [
+                        'available' => false,
+                        'error' => $e->getMessage()
+                    ];
+                }
+
+                return response()->json([
+                    'query' => $query,
+                    'database_status' => [
+                        'total_content' => $totalContent,
+                        'active_content' => $activeContent,
+                        'connection_ok' => true
+                    ],
+                    'direct_search' => [
+                        'count' => $directSearch->count(),
+                        'results' => $directSearch->toArray()
+                    ],
+                    'knowledge_service' => $knowledgeServiceResult,
+                    'debug_info' => [
+                        'route_working' => true,
+                        'timestamp' => now()->toISOString()
+                    ]
+                ]);
+
+            } catch (Exception $e) {
+                return response()->json([
+                    'error' => true,
+                    'message' => $e->getMessage(),
+                    'query' => $query,
+                    'trace' => $e->getTraceAsString()
+                ], 500);
+            }
+        });
+
+        // Estadísticas básicas
+        Route::get('/stats', function() {
+            try {
+                $stats = [
+                    'knowledge_base' => [
+                        'total' => DB::table('knowledge_base')->count(),
+                        'active' => DB::table('knowledge_base')->where('is_active', true)->count(),
+                        'by_category' => [],
+                        'sample_records' => []
+                    ],
+                    'services' => [],
+                    'environment' => app()->environment(),
+                    'timestamp' => now()->toISOString()
+                ];
+
+                // Obtener categorías si hay contenido
+                if ($stats['knowledge_base']['active'] > 0) {
+                    try {
+                        $stats['knowledge_base']['by_category'] = DB::table('knowledge_base')
+                            ->where('is_active', true)
+                            ->groupBy('category')
+                            ->selectRaw('category, COUNT(*) as count')
+                            ->get()
+                            ->pluck('count', 'category')
+                            ->toArray();
+
+                        $stats['knowledge_base']['sample_records'] = DB::table('knowledge_base')
+                            ->where('is_active', true)
+                            ->limit(3)
+                            ->get(['id', 'title', 'category', 'department'])
+                            ->toArray();
+                    } catch (Exception $e) {
+                        $stats['knowledge_base']['category_error'] = $e->getMessage();
+                    }
+                }
+
+                // Verificar servicios
+                try {
+                    $ollamaService = app(\App\Services\OllamaService::class);
+                    $stats['services']['ollama'] = $ollamaService->isHealthy();
+                } catch (Exception $e) {
+                    $stats['services']['ollama'] = 'error: ' . $e->getMessage();
+                }
+
+                try {
+                    $knowledgeService = app(\App\Services\KnowledgeBaseService::class);
+                    $stats['services']['knowledge_base'] = $knowledgeService->isHealthy();
+                } catch (Exception $e) {
+                    $stats['services']['knowledge_base'] = 'error: ' . $e->getMessage();
+                }
+
+                return response()->json($stats);
+
+            } catch (Exception $e) {
+                return response()->json([
+                    'error' => true,
+                    'message' => $e->getMessage()
+                ], 500);
+            }
+        });
+
+        // Test manual de chat completo
+        Route::post('/chat-test', function(Request $request) {
+            $message = $request->input('message', '¿Cómo activar mi correo?');
+            $userType = $request->input('user_type', 'student');
+
+            try {
+                // Test directo del EnhancedChatController
+                $controller = app(\App\Http\Controllers\Api\EnhancedChatController::class);
+
+                // Crear request simulado
+                $testRequest = new Request();
+                $testRequest->merge([
+                    'message' => $message,
+                    'user_type' => $userType
+                ]);
+
+                // Intentar llamar al método chat
+                $response = $controller->chat($testRequest);
+
+                return response()->json([
+                    'test_message' => $message,
+                    'user_type' => $userType,
+                    'controller_response' => $response->getData(),
+                    'test_successful' => true
+                ]);
+
+            } catch (Exception $e) {
+                return response()->json([
+                    'test_message' => $message,
+                    'user_type' => $userType,
+                    'error' => $e->getMessage(),
+                    'test_successful' => false,
+                    'trace' => $e->getTraceAsString()
+                ], 500);
+            }
+        });
     });
 });
 
 // ========================================================================
-// NUEVAS RUTAS MEJORADAS (VERSIÓN 2.0)
+// RUTAS V2 (Ya existentes con Enhanced)
 // ========================================================================
 Route::prefix('v2')->group(function () {
-
-    // CHAT MEJORADO CON ALTA CONFIANZA
     Route::middleware(['throttle:enhanced_chat'])->group(function () {
         Route::post('/chat', [EnhancedChatController::class, 'chat'])
              ->name('api.v2.chat');
@@ -98,7 +298,6 @@ Route::prefix('v2')->group(function () {
              ->name('api.v2.chat.feedback');
     });
 
-    // INFORMACIÓN MEJORADA
     Route::middleware(['throttle:api'])->group(function () {
         Route::get('/departments', [EnhancedChatController::class, 'enhancedDepartments'])
              ->name('api.v2.departments');
@@ -108,170 +307,20 @@ Route::prefix('v2')->group(function () {
 
         Route::get('/performance-metrics', [EnhancedChatController::class, 'performanceMetrics'])
              ->name('api.v2.performance');
-
-        Route::get('/ping', function () {
-            return response()->json([
-                'status' => 'ok',
-                'service' => 'Enhanced Hola Ociel API',
-                'version' => '2.0.0',
-                'features' => [
-                    'high_confidence_responses',
-                    'intelligent_escalation',
-                    'ghost_cms_integration',
-                    'advanced_analytics'
-                ],
-                'timestamp' => now()->toISOString(),
-                'server_time' => now()->format('Y-m-d H:i:s T')
-            ]);
-        })->name('api.v2.ping');
     });
 });
 
-// ========================================================================
-// RUTA DE TRANSICIÓN INTELIGENTE (RECOMENDADA)
-// ========================================================================
-Route::prefix('v1')->group(function () {
+// Health check público
+Route::get('/health', [EnhancedChatController::class, 'healthAdvanced'])->name('api.health.public');
 
-    // ENDPOINT HÍBRIDO: Usa el controlador mejorado pero mantiene compatibilidad
-    Route::post('/chat-enhanced', [EnhancedChatController::class, 'chat'])
-         ->middleware(['throttle:enhanced_chat'])
-         ->name('api.chat.enhanced');
-
-    // Permite a los clientes migrar gradualmente cambiando solo el endpoint
+// ========================================================================
+// RUTA SIMPLE DE TEST (fuera de cualquier grupo)
+// ========================================================================
+Route::get('/simple-test', function() {
+    return response()->json([
+        'message' => 'API funcionando correctamente',
+        'timestamp' => now()->toISOString(),
+        'knowledge_base_count' => DB::table('knowledge_base')->count(),
+        'environment' => app()->environment()
+    ]);
 });
-
-// ========================================================================
-// RUTAS DE GESTIÓN Y MIGRACIÓN
-// ========================================================================
-Route::prefix('admin')->middleware(['auth:sanctum', 'can:admin-access'])->group(function () {
-
-    // Comparación de versiones
-    Route::get('/compare-versions', function () {
-        return response()->json([
-            'v1_endpoints' => [
-                'POST /api/v1/chat' => 'ChatController@chat',
-                'GET /api/v1/health' => 'ChatController@health',
-                'GET /api/v1/departments' => 'ChatController@departments'
-            ],
-            'v2_endpoints' => [
-                'POST /api/v2/chat' => 'EnhancedChatController@chat',
-                'GET /api/v2/health' => 'EnhancedChatController@healthAdvanced',
-                'GET /api/v2/departments' => 'EnhancedChatController@enhancedDepartments'
-            ],
-            'migration_status' => [
-                'v1_usage_percentage' => 85, // Calculado dinámicamente
-                'v2_usage_percentage' => 15,
-                'recommended_action' => 'Migrar gradualmente a v2'
-            ]
-        ]);
-    })->name('api.admin.compare-versions');
-
-    // Forzar migración cuando estés listo
-    Route::post('/force-migration-v2', function () {
-        // Cambiar configuración para dirigir todo el tráfico a v2
-        config(['app.default_chat_version' => 'v2']);
-
-        return response()->json([
-            'message' => 'Migración a v2 activada',
-            'status' => 'success',
-            'timestamp' => now()->toISOString()
-        ]);
-    })->name('api.admin.force-migration');
-});
-
-// ===== HEALTH CHECKS ADICIONALES =====
-Route::get('/health', [ChatController::class, 'health'])->name('api.health.public');
-
-Route::get('/health/detailed', [ChatController::class, 'detailedHealth'])
-     ->middleware(['auth:sanctum', 'can:view-system-health'])
-     ->name('api.health.detailed');
-
-// Health check mejorado para v2
-Route::get('/health/v2', [EnhancedChatController::class, 'healthAdvanced'])
-     ->name('api.health.v2');
-
-// ===== RUTAS DE DESARROLLO (solo en entorno local) =====
-if (app()->environment('local')) {
-    Route::prefix('dev')->group(function () {
-
-        Route::get('/test-chat', function () {
-            return view('dev.test-chat');
-        })->name('api.dev.test-chat');
-
-        // Test comparativo entre v1 y v2
-        Route::post('/test-comparison', function (Request $request) {
-            $message = $request->input('message', '¿Información sobre inscripción?');
-
-            // Respuesta v1
-            $v1Controller = app(ChatController::class);
-            $v1Response = $v1Controller->chat($request);
-
-            // Respuesta v2
-            $v2Controller = app(EnhancedChatController::class);
-            $v2Response = $v2Controller->chat($request);
-
-            return response()->json([
-                'message' => $message,
-                'v1_response' => $v1Response->getData(),
-                'v2_response' => $v2Response->getData(),
-                'comparison' => [
-                    'v1_confidence' => $v1Response->getData()->data->confidence ?? 0,
-                    'v2_confidence' => $v2Response->getData()->data->confidence ?? 0,
-                    'winner' => 'v2' // Por defecto, v2 debería ser mejor
-                ]
-            ]);
-        })->name('api.dev.test-comparison');
-
-        Route::post('/simulate-load', [ChatController::class, 'simulateLoad'])
-             ->name('api.dev.simulate-load');
-
-        Route::get('/clear-all-cache', function () {
-            Artisan::call('ociel:clear-cache --type=all --force');
-            return response()->json(['message' => 'Cache cleared']);
-        })->name('api.dev.clear-cache');
-    });
-}
-
-// ========================================================================
-// CONFIGURACIÓN DE RATE LIMITING PERSONALIZADA
-// ========================================================================
-
-// En app/Http/Kernel.php, agregar:
-/*
-protected $middlewareGroups = [
-    'api' => [
-        'throttle:api',
-        \Illuminate\Routing\Middleware\SubstituteBindings::class,
-    ],
-];
-
-protected $routeMiddleware = [
-    'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
-];
-*/
-
-// En app/Providers/RouteServiceProvider.php, configurar:
-/*
-protected function configureRateLimiting()
-{
-    RateLimiter::for('api', function (Request $request) {
-        return Limit::perMinute(60)->by(optional($request->user())->id ?: $request->ip());
-    });
-
-    RateLimiter::for('chat', function (Request $request) {
-        return Limit::perMinute(20)->by(optional($request->user())->id ?: $request->ip());
-    });
-
-    RateLimiter::for('enhanced_chat', function (Request $request) {
-        return Limit::perMinute(30)->by(optional($request->user())->id ?: $request->ip());
-    });
-
-    RateLimiter::for('feedback', function (Request $request) {
-        return Limit::perMinute(10)->by(optional($request->user())->id ?: $request->ip());
-    });
-
-    RateLimiter::for('search', function (Request $request) {
-        return Limit::perMinute(40)->by(optional($request->user())->id ?: $request->ip());
-    });
-}
-*/

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>¡Hola Ociel! - Asistente Virtual UAN</title>
+    <title>¡Hola Ociel! - Asistente Virtual UAN v2.0</title>
     <style>
         * {
             margin: 0;
@@ -92,13 +92,16 @@
         .status-indicator {
             width: 10px;
             height: 10px;
-            background: #10b981;
             border-radius: 50%;
             margin-left: auto;
             animation: pulse 2s infinite;
             position: relative;
             z-index: 1;
         }
+
+        .status-indicator.online { background: #10b981; }
+        .status-indicator.connecting { background: #f59e0b; }
+        .status-indicator.offline { background: #ef4444; }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -175,8 +178,7 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         }
 
-        /* === CORRECCIÓN PARA CONTENIDO DE OCIEL === */
-
+        /* === CONTENIDO DE OCIEL === */
         .message.ociel .message-content h3 {
             color: #1e40af;
             font-size: 16px;
@@ -215,8 +217,7 @@
             color: #1f2937;
         }
 
-        /* === LISTAS CORREGIDAS === */
-
+        /* === LISTAS === */
         .message.ociel .message-content ul {
             margin: 12px 0;
             padding: 0;
@@ -242,8 +243,7 @@
             top: 0;
         }
 
-        /* === INFORMACIÓN DE CONTACTO CORREGIDA === */
-
+        /* === INFORMACIÓN DE CONTACTO === */
         .contact-info {
             background: linear-gradient(135deg, #f0fdf4, #dcfce7);
             border: 1px solid #bbf7d0;
@@ -271,30 +271,7 @@
             font-size: 13px;
         }
 
-        /* === CAJAS INFORMATIVAS CORREGIDAS === */
-
-        .info-box {
-            background: linear-gradient(135deg, #eff6ff, #dbeafe);
-            border: 1px solid #93c5fd;
-            border-left: 4px solid #3b82f6;
-            padding: 12px 16px;
-            margin: 12px 0;
-            border-radius: 0 8px 8px 0;
-            font-size: 14px;
-        }
-
-        .warning-box {
-            background: linear-gradient(135deg, #fefce8, #fef3c7);
-            border: 1px solid #fbbf24;
-            border-left: 4px solid #f59e0b;
-            padding: 12px 16px;
-            margin: 12px 0;
-            border-radius: 0 8px 8px 0;
-            font-size: 14px;
-        }
-
         /* === AVATAR DE MENSAJE === */
-
         .message-avatar {
             width: 36px;
             height: 36px;
@@ -315,7 +292,6 @@
         }
 
         /* === INDICADOR DE ESCRITURA === */
-
         .typing-indicator {
             display: none;
             align-items: center;
@@ -350,7 +326,6 @@
         }
 
         /* === ÁREA DE INPUT === */
-
         .chat-input-container {
             padding: 24px;
             background: white;
@@ -438,7 +413,6 @@
         }
 
         /* === MENSAJE DE BIENVENIDA === */
-
         .welcome-message {
             text-align: center;
             color: #6b7280;
@@ -462,7 +436,6 @@
         }
 
         /* === INDICADOR DE CONFIANZA === */
-
         .confidence-indicator {
             font-size: 10px;
             color: #9ca3af;
@@ -476,7 +449,6 @@
         .low-confidence { color: #ef4444; }
 
         /* === FOOTER === */
-
         .footer-info {
             text-align: center;
             padding: 12px 24px;
@@ -487,8 +459,37 @@
             font-weight: 500;
         }
 
-        /* === RESPONSIVE === */
+        /* === MENSAJES DE ERROR === */
+        .error-message {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
 
+        .retry-button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .system-message {
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+            margin: 16px 0;
+            font-style: italic;
+        }
+
+        /* === RESPONSIVE === */
         @media (max-width: 480px) {
             body {
                 padding: 10px;
@@ -520,9 +521,9 @@
             <div class="ociel-avatar">O</div>
             <div class="header-info">
                 <div class="header-title">¡Hola Ociel!</div>
-                <div class="header-subtitle">Asistente Virtual UAN</div>
+                <div class="header-subtitle">Asistente Virtual UAN v2.0</div>
             </div>
-            <div class="status-indicator"></div>
+            <div class="status-indicator online" id="statusIndicator"></div>
         </div>
 
         <div class="chat-messages" id="chatMessages">
@@ -547,9 +548,9 @@
         <div class="chat-input-container">
             <div class="quick-actions">
                 <button class="quick-action-btn" onclick="sendQuickMessage('¿Qué carreras ofrecen?')">🎓 Carreras</button>
-                <button class="quick-action-btn" onclick="sendQuickMessage('Información sobre inscripción')">📝 Inscripción</button>
-                <button class="quick-action-btn" onclick="sendQuickMessage('Servicios de biblioteca')">📚 Biblioteca</button>
-                <button class="quick-action-btn" onclick="sendQuickMessage('Soporte técnico')">💻 Sistemas</button>
+                <button class="quick-action-btn" onclick="sendQuickMessage('¿Cómo me inscribo?')">📝 Inscripción</button>
+                <button class="quick-action-btn" onclick="sendQuickMessage('¿Cómo activar mi correo?')">📧 Correo</button>
+                <button class="quick-action-btn" onclick="sendQuickMessage('Soporte técnico')">💻 Soporte</button>
             </div>
 
             <div class="chat-input-wrapper">
@@ -568,22 +569,54 @@
         </div>
 
         <div class="footer-info">
-            Universidad Autónoma de Nayarit • Tel: 311-211-8800
+            Universidad Autónoma de Nayarit • Tel: 311-211-8800 • Sistema v2.0
         </div>
     </div>
 
     <script>
+        // === CONFIGURACIÓN DEL SISTEMA ===
         let isLoading = false;
         let sessionId = null;
+        let retryCount = 0;
+        const maxRetries = 3;
 
-        // Configuración de la API
-        const API_BASE_URL = 'http://localhost:8000/api/v1';
+        // URLs de la API - ACTUALIZADO para EnhancedChatController
+        const API_CONFIG = {
+            CHAT_URL: '/api/v1/chat',          // Usa EnhancedChatController
+            HEALTH_URL: '/api/v1/health',      // Usa healthAdvanced
+            DEBUG_URL: '/api/v1/debug/stats',  // Nueva ruta de debug
+            FALLBACK_CHAT_URL: '/api/v2/chat'  // Fallback v2
+        };
 
-        // Inicializar el chat
+        // Estado del sistema
+        let systemStatus = {
+            apiOnline: false,
+            lastHealthCheck: null,
+            errorCount: 0,
+            debugMode: false
+        };
+
+        // === INICIALIZACIÓN ===
         document.addEventListener('DOMContentLoaded', function() {
+            initializeChat();
+        });
+
+        async function initializeChat() {
             setupEventListeners();
             autoResizeTextarea();
-        });
+
+            // Verificar salud del sistema al iniciar
+            await checkSystemHealth();
+
+            // Health check periódico cada 30 segundos
+            setInterval(checkSystemHealth, 30000);
+
+            // Activar modo debug si estamos en desarrollo
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                systemStatus.debugMode = true;
+                console.log('🔧 Modo debug activado');
+            }
+        }
 
         function setupEventListeners() {
             const messageInput = document.getElementById('messageInput');
@@ -601,6 +634,11 @@
                 toggleSendButton();
             });
 
+            // Debug: Doble click en el avatar para mostrar debug info
+            if (systemStatus.debugMode) {
+                document.querySelector('.ociel-avatar').addEventListener('dblclick', showDebugInfo);
+            }
+
             messageInput.focus();
         }
 
@@ -613,14 +651,66 @@
         function toggleSendButton() {
             const input = document.getElementById('messageInput');
             const button = document.getElementById('sendButton');
+            button.disabled = !input.value.trim() || isLoading;
+        }
 
-            if (input.value.trim() && !isLoading) {
-                button.disabled = false;
-            } else {
-                button.disabled = true;
+        // === VERIFICACIÓN DE SALUD DEL SISTEMA ===
+        async function checkSystemHealth() {
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+                const response = await fetch(API_CONFIG.HEALTH_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (response.ok) {
+                    const healthData = await response.json();
+                    systemStatus.apiOnline = true;
+                    systemStatus.lastHealthCheck = new Date();
+                    systemStatus.errorCount = 0;
+                    updateStatusIndicator('online');
+
+                    if (systemStatus.debugMode) {
+                        console.log('✅ Health check OK:', healthData);
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.warn('⚠️ Health check failed:', error.message);
+                systemStatus.apiOnline = false;
+                systemStatus.errorCount++;
+                updateStatusIndicator('offline');
+
+                // Si hay muchos errores consecutivos, avisar al usuario
+                if (systemStatus.errorCount >= 3) {
+                    showSystemMessage('⚠️ Detectamos problemas de conectividad. El servicio puede estar limitado.');
+                }
             }
         }
 
+        function updateStatusIndicator(status) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.className = `status-indicator ${status}`;
+        }
+
+        function showSystemMessage(message) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const systemDiv = document.createElement('div');
+            systemDiv.className = 'system-message';
+            systemDiv.textContent = message;
+            messagesContainer.appendChild(systemDiv);
+            scrollToBottom();
+        }
+
+        // === ENVÍO DE MENSAJES ===
         async function sendMessage() {
             const input = document.getElementById('messageInput');
             const message = input.value.trim();
@@ -634,92 +724,191 @@
             addMessage(message, 'user');
             showTypingIndicator();
 
-            let retryCount = 0;
-            const maxRetries = 3;
-            const retryDelay = 2000;
+            try {
+                const response = await sendChatRequest(message);
 
-            while (retryCount < maxRetries) {
+                if (response.success) {
+                    handleSuccessfulResponse(response);
+                } else {
+                    handleErrorResponse(response);
+                }
+
+                retryCount = 0; // Reset retry count on success
+
+            } catch (error) {
+                console.error('❌ Chat error:', error);
+                await handleChatError(error, message);
+            } finally {
+                hideTypingIndicator();
+            }
+        }
+
+        async function sendChatRequest(message) {
+            updateStatusIndicator('connecting');
+
+            const requestData = {
+                message: message,
+                user_type: 'student',
+                session_id: sessionId,
+                context_preference: 'standard'
+            };
+
+            if (systemStatus.debugMode) {
+                console.log('📤 Enviando request:', requestData);
+            }
+
+            // Intentar primero con la API principal (v1 con EnhancedChatController)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+                const response = await fetch(API_CONFIG.CHAT_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(requestData),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                updateStatusIndicator('online');
+
+                if (systemStatus.debugMode) {
+                    console.log('📥 Respuesta recibida:', data);
+                }
+
+                return data;
+
+            } catch (primaryError) {
+                console.warn('⚠️ API principal falló, intentando fallback:', primaryError.message);
+
+                // Intentar con API fallback (v2)
                 try {
-                    console.log(`Intento ${retryCount + 1} de ${maxRetries}`);
-
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-                    const response = await fetch(`${API_BASE_URL}/chat`, {
+                    const fallbackResponse = await fetch(API_CONFIG.FALLBACK_CHAT_URL, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Accept': 'application/json'
                         },
-                        body: JSON.stringify({
-                            message: message,
-                            user_type: 'student',
-                            session_id: sessionId
-                        }),
+                        body: JSON.stringify(requestData),
                         signal: controller.signal
                     });
 
                     clearTimeout(timeoutId);
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!fallbackResponse.ok) {
+                        throw new Error(`Fallback HTTP ${fallbackResponse.status}`);
                     }
 
-                    const data = await response.json();
+                    const fallbackData = await fallbackResponse.json();
+                    updateStatusIndicator('online');
 
-                    if (data.success) {
-                        sessionId = data.data.session_id;
-                        addMessage(data.data.response, 'ociel', data.data.confidence);
-
-                        if (data.data.contact_info && data.data.requires_human_follow_up) {
-                            addContactInfo(data.data.contact_info);
-                        }
-
-                        break;
-
-                    } else {
-                        if (data.data && data.data.response) {
-                            sessionId = data.data.session_id;
-                            addMessage(data.data.response, 'ociel', data.data.confidence || 0.3);
-                            addMessage('⚠️ Nota: Esta respuesta se generó en modo de respaldo. Para información más precisa, contacta directamente a la UAN.', 'ociel', 0.3);
-                            break;
-                        } else {
-                            throw new Error(data.error || 'Error procesando la respuesta');
-                        }
+                    if (systemStatus.debugMode) {
+                        console.log('📥 Respuesta fallback recibida:', fallbackData);
                     }
 
-                } catch (error) {
-                    console.error(`Error en intento ${retryCount + 1}:`, error);
-                    retryCount++;
+                    return fallbackData;
 
-                    if (error.name === 'AbortError') {
-                        console.log('Solicitud cancelada por timeout');
-                    }
+                } catch (fallbackError) {
+                    updateStatusIndicator('offline');
+                    throw fallbackError;
+                }
+            }
+        }
 
-                    if (retryCount < maxRetries) {
-                        updateTypingIndicator(`Reintentando... (${retryCount}/${maxRetries})`);
-                        await new Promise(resolve => setTimeout(resolve, retryDelay));
-                    } else {
-                        hideTypingIndicator();
-                        addMessage('🔧 Disculpa, estoy experimentando problemas técnicos temporales. Aquí tienes información de contacto directo:', 'ociel', 0.3);
-                        addContactInfo({
-                            phone: '311-211-8800',
-                            email: 'contacto@uan.edu.mx',
-                            website: 'https://www.uan.edu.mx'
-                        });
-                        addMessage('💡 Tip: Puedes intentar hacer tu consulta de nuevo en unos momentos, o contactar directamente usando la información arriba.', 'ociel', 0.3);
-                    }
+        function handleSuccessfulResponse(response) {
+            if (response.data) {
+                sessionId = response.data.session_id;
+                const confidence = response.data.confidence || 0.8;
+
+                addMessage(response.data.response || 'Respuesta no disponible', 'ociel', confidence);
+
+                // Mostrar información adicional del Enhanced response
+                if (response.data.requires_human_follow_up) {
+                    addSystemMessage('🔄 Esta consulta ha sido marcada para seguimiento especializado.');
+                }
+
+                // Mostrar información de contacto si está disponible
+                if (response.data.contact_info && response.data.contact_info.primary) {
+                    addContactInfo(response.data.contact_info);
+                }
+
+                if (systemStatus.debugMode) {
+                    console.log('📊 Quality indicators:', response.data.quality_indicators);
+                    console.log('🔧 Model used:', response.data.model_used);
+                    console.log('⏱️ Response time:', response.data.response_time + 'ms');
+                }
+            } else {
+                addMessage('Recibí tu mensaje pero no pude procesarlo correctamente. ¿Puedes intentar reformular tu consulta?', 'ociel', 0.3);
+            }
+        }
+
+        function handleErrorResponse(response) {
+            const errorMessage = response.error || 'Error desconocido en el sistema';
+
+            if (response.data && response.data.response) {
+                // Hay una respuesta de respaldo del Enhanced system
+                addMessage(response.data.response, 'ociel', response.data.confidence || 0.3);
+
+                if (response.data.requires_human_follow_up) {
+                    addSystemMessage('⚠️ Esta respuesta fue generada en modo de respaldo. Se recomienda contacto directo.');
+                }
+            } else {
+                addMessage(`🔧 Disculpa, estoy experimentando dificultades técnicas: ${errorMessage}`, 'ociel', 0.2);
+                addErrorRecoveryOptions();
+            }
+        }
+
+        async function handleChatError(error, originalMessage) {
+            retryCount++;
+
+            if (retryCount <= maxRetries) {
+                updateTypingIndicator(`Reintentando... (${retryCount}/${maxRetries})`);
+
+                // Esperar antes de reintentar (backoff exponencial)
+                const delay = Math.pow(2, retryCount) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+                try {
+                    const retryResponse = await sendChatRequest(originalMessage);
+                    handleSuccessfulResponse(retryResponse);
+                    return;
+                } catch (retryError) {
+                    console.warn(`🔄 Retry ${retryCount} failed:`, retryError.message);
                 }
             }
 
-            hideTypingIndicator();
+            // Si llegamos aquí, todos los reintentos fallaron
+            addMessage('🚨 **Disculpa las molestias**\n\nEstoy experimentando dificultades técnicas temporales.', 'ociel', 0.3);
+            addErrorRecoveryOptions();
         }
 
-        function updateTypingIndicator(message) {
-            const indicator = document.getElementById('typingIndicator');
-            const dots = indicator.querySelector('.typing-dots');
-            if (dots) {
-                dots.innerHTML = `<span style="font-size: 12px; color: #666;">${message}</span>`;
-            }
+        function addErrorRecoveryOptions() {
+            const messagesContainer = document.getElementById('chatMessages');
+
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `
+                <strong>Opciones de contacto directo:</strong><br>
+                📞 Universidad Autónoma de Nayarit: 311-211-8800<br>
+                🌐 Portal oficial: <a href="https://www.uan.edu.mx" target="_blank">https://www.uan.edu.mx</a><br>
+                📧 Soporte técnico: sistemas@uan.edu.mx
+                <button class="retry-button" onclick="location.reload()">🔄 Reiniciar chat</button>
+            `;
+
+            messagesContainer.appendChild(errorDiv);
+            scrollToBottom();
         }
 
         function sendQuickMessage(message) {
@@ -781,15 +970,17 @@
         }
 
         function formatOcielResponse(text) {
-            console.log('Formateando texto:', text);
+            if (systemStatus.debugMode) {
+                console.log('🎨 Formateando respuesta:', text.substring(0, 100) + '...');
+            }
 
-            // 1. Normalizar texto
+            // Normalizar texto
             let formatted = text
                 .replace(/\r\n/g, '\n')
                 .replace(/\r/g, '\n')
                 .trim();
 
-            // 2. Separar en párrafos
+            // Separar en párrafos
             const paragraphs = formatted.split('\n\n').filter(p => p.trim());
             let result = '';
 
@@ -816,7 +1007,7 @@
                     } else if (line.match(/^[A-ZÁÉÍÓÚÑ\s]{4,}:\s*$/)) {
                         result += `<h4>${line}</h4>`;
                     } else if (line.includes('311-211-8800') || line.includes('@uan.edu.mx')) {
-                        // NO agregar ícono si ya existe en el texto
+                        // Formatear información de contacto
                         if (!line.includes('📞') && !line.includes('📧')) {
                             if (line.includes('311-211-8800')) {
                                 result += `<div class="contact-item">📞 ${line}</div>`;
@@ -824,7 +1015,6 @@
                                 result += `<div class="contact-item">📧 ${line}</div>`;
                             }
                         } else {
-                            // Ya tiene ícono, solo formatear
                             result += `<div class="contact-item">${line}</div>`;
                         }
                     } else {
@@ -844,21 +1034,14 @@
                 }
             }
 
-            // 3. Envolver información de contacto y limpiar duplicados
+            // Envolver información de contacto
             result = result.replace(
                 /(<div class="contact-item">.*?<\/div>)+/gs,
                 function(match) {
-                    // Limpiar duplicaciones dentro del bloque de contacto
-                    let cleanMatch = match
-                        .replace(/📞\s*📞/g, '📞')
-                        .replace(/📧\s*📧/g, '📧')
-                        .replace(/311-211-8800\s+ext\.\s+311-211-8800\s+ext\.\s+(\d+)/g, '311-211-8800 ext. $1');
-
-                    return '<div class="contact-info"><div class="contact-title">📞 Información de contacto:</div>' + cleanMatch + '</div>';
+                    return '<div class="contact-info"><div class="contact-title">📞 Información de contacto:</div>' + match + '</div>';
                 }
             );
 
-            console.log('Resultado formateado:', result);
             return result;
         }
 
@@ -867,19 +1050,45 @@
 
             const contactDiv = document.createElement('div');
             contactDiv.className = 'message ociel';
+
+            let contactHtml = '<div class="contact-info"><div class="contact-title">📞 Información de contacto oficial:</div>';
+
+            if (contactInfo.primary) {
+                contactHtml += `<div class="contact-item">📞 ${contactInfo.primary.name}: ${contactInfo.primary.phone}</div>`;
+                if (contactInfo.primary.email) {
+                    contactHtml += `<div class="contact-item">📧 ${contactInfo.primary.email}</div>`;
+                }
+            }
+
+            if (contactInfo.secondary) {
+                contactHtml += `<div class="contact-item">📞 ${contactInfo.secondary.name}: ${contactInfo.secondary.phone}</div>`;
+            }
+
+            if (contactInfo.hours) {
+                contactHtml += `<div class="contact-item">⏰ ${contactInfo.hours}</div>`;
+            }
+
+            if (contactInfo.location) {
+                contactHtml += `<div class="contact-item">📍 ${contactInfo.location}</div>`;
+            }
+
+            contactHtml += '</div>';
+
             contactDiv.innerHTML = `
                 <div class="message-avatar">📞</div>
-                <div class="message-content">
-                    <div class="contact-info">
-                        <div class="contact-title">📞 Información de contacto oficial:</div>
-                        <div class="contact-item">📞 ${contactInfo.phone}</div>
-                        <div class="contact-item">📧 ${contactInfo.email}</div>
-                        <div class="contact-item">🌐 ${contactInfo.website || 'https://www.uan.edu.mx'}</div>
-                    </div>
-                </div>
+                <div class="message-content">${contactHtml}</div>
             `;
 
             messagesContainer.appendChild(contactDiv);
+            scrollToBottom();
+        }
+
+        function addSystemMessage(message) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const systemDiv = document.createElement('div');
+            systemDiv.className = 'system-message';
+            systemDiv.textContent = message;
+            messagesContainer.appendChild(systemDiv);
             scrollToBottom();
         }
 
@@ -900,6 +1109,14 @@
             scrollToBottom();
         }
 
+        function updateTypingIndicator(message) {
+            const indicator = document.getElementById('typingIndicator');
+            const dots = indicator.querySelector('.typing-dots');
+            if (dots) {
+                dots.innerHTML = `<span style="font-size: 12px; color: #666; padding: 0 12px;">${message}</span>`;
+            }
+        }
+
         function hideTypingIndicator() {
             isLoading = false;
             document.getElementById('typingIndicator').style.display = 'none';
@@ -911,9 +1128,42 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // Manejar conectividad
+        // === FUNCIONES DE DEBUG ===
+        async function showDebugInfo() {
+            if (!systemStatus.debugMode) return;
+
+            try {
+                const response = await fetch(API_CONFIG.DEBUG_URL);
+                const debugData = await response.json();
+
+                console.group('🔧 Debug Info - ¡Hola Ociel! v2.0');
+                console.log('📊 System Status:', systemStatus);
+                console.log('📈 API Stats:', debugData);
+                console.log('🔗 API URLs:', API_CONFIG);
+                console.groupEnd();
+
+                // Mostrar en el chat también
+                addSystemMessage(`🔧 Debug: ${debugData.knowledge_base?.active || 0} entradas activas, API: ${systemStatus.apiOnline ? 'Online' : 'Offline'}`);
+            } catch (error) {
+                console.error('❌ Error getting debug info:', error);
+            }
+        }
+
+        // === MANEJO DE CONECTIVIDAD ===
+        window.addEventListener('online', function() {
+            systemStatus.errorCount = 0;
+            updateStatusIndicator('online');
+            addSystemMessage('✅ Conexión restaurada. ¡Ya puedes continuar con tus consultas!');
+        });
+
+        window.addEventListener('offline', function() {
+            updateStatusIndicator('offline');
+            addSystemMessage('📱 Se perdió la conexión a internet. Verifica tu conectividad y vuelve a intentar.');
+        });
+
+        // === FUNCIONES DE UTILIDAD ===
         function checkConnectivity() {
-            return fetch(`${API_BASE_URL}/ping`, {
+            return fetch(API_CONFIG.HEALTH_URL, {
                 method: 'GET',
                 timeout: 5000
             })
@@ -921,25 +1171,40 @@
             .catch(() => false);
         }
 
+        // Verificación periódica de conectividad más inteligente
         setInterval(async () => {
-            const isOnline = await checkConnectivity();
-            if (!isOnline && !document.querySelector('.connectivity-warning')) {
-                addMessage('🔌 Detecté problemas de conectividad. Las respuestas pueden tardar más de lo normal.', 'ociel', 0.3);
-
-                const lastMessage = document.querySelector('.message:last-child .message-content');
-                if (lastMessage) {
-                    lastMessage.classList.add('connectivity-warning');
+            if (!systemStatus.apiOnline) {
+                const isOnline = await checkConnectivity();
+                if (isOnline) {
+                    systemStatus.apiOnline = true;
+                    systemStatus.errorCount = 0;
+                    updateStatusIndicator('online');
+                    addSystemMessage('🔄 Servicio restaurado automáticamente.');
                 }
             }
-        }, 30000);
+        }, 60000); // Cada minuto cuando está offline
 
-        window.addEventListener('online', function() {
-            addMessage('✅ Conexión restaurada. ¡Ya puedes continuar con tus consultas!', 'ociel', 0.8);
-        });
+        // === INICIALIZACIÓN FINAL ===
+        if (systemStatus.debugMode) {
+            console.log(`
+🚀 ¡Hola Ociel! Widget v2.0 - Modo Debug Activado
 
-        window.addEventListener('offline', function() {
-            addMessage('📱 Se perdió la conexión a internet. Verifica tu conectividad y vuelve a intentar.', 'ociel', 0.3);
-        });
+📋 Configuración:
+- Chat API: ${API_CONFIG.CHAT_URL}
+- Health API: ${API_CONFIG.HEALTH_URL}
+- Debug API: ${API_CONFIG.DEBUG_URL}
+- Fallback API: ${API_CONFIG.FALLBACK_CHAT_URL}
+
+🔧 Funciones Debug:
+- Doble-click en avatar de Ociel para mostrar debug info
+- Logs detallados en consola
+- Información de timing y calidad de respuestas
+
+📞 Contacto del proyecto:
+- DGS (Sistemas): 311-211-8800 ext. 8640
+- Email: sistemas@uan.edu.mx
+            `);
+        }
     </script>
 </body>
 </html>

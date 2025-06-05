@@ -243,8 +243,7 @@ class OcielStatus extends Command
             case 'knowledge_base':
                 if (isset($details['total_entries'])) {
                     $this->line("     Total entradas: {$details['total_entries']}");
-                    $this->line("     Última actualización: {$details['last_updated']}");
-
+                    $this->line("     Última actualización: " . ($details['last_updated'] ?? 'No disponible'));
                     if (isset($details['by_category'])) {
                         $this->line("     Por categoría:");
                         foreach ($details['by_category'] as $cat => $count) {
