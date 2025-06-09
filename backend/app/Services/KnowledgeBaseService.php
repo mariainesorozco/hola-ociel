@@ -12,7 +12,7 @@ class KnowledgeBaseService
     private $ollamaService;
     private $vectorService;
 
-    public function __construct(OllamaService $ollamaService, QdrantVectorService $vectorService = null)
+    public function __construct(OllamaService $ollamaService, $vectorService = null)
     {
         $this->ollamaService = $ollamaService;
         $this->vectorService = $vectorService;

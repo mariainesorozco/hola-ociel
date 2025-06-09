@@ -27,6 +27,7 @@ class Kernel extends ConsoleKernel
         Commands\TestSemanticSearch::class,
 
         Commands\DebugQdrant::class,
+        Commands\ImportMarkdown::class,
 
         // Otros comandos
         // Commands\UpdateEmbeddings::class,
