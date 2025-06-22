@@ -45,11 +45,25 @@ return [
     ],
     'qdrant' => [
         'url' => env('QDRANT_URL', 'http://localhost:6333'),
-        'collection' => env('QDRANT_COLLECTION', 'uan_piida_knowledge'),
+        'collection' => env('QDRANT_COLLECTION', 'ociel_knowledge'),
         'vector_size' => env('QDRANT_VECTOR_SIZE', 768),
         'distance_metric' => env('QDRANT_DISTANCE', 'Cosine'),
         'timeout' => env('QDRANT_TIMEOUT', 30),
         'api_key' => env('QDRANT_API_KEY', null), // Para Qdrant Cloud
+    ],
+    'notion' => [
+        'api_key' => env('NOTION_API_KEY'),
+        'timeout' => env('NOTION_TIMEOUT', 30),
+        'version' => env('NOTION_VERSION', '2022-06-28'),
+        'sync_enabled' => env('NOTION_SYNC_ENABLED', true),
+        'default_category' => env('NOTION_DEFAULT_CATEGORY', 'notion_docs'),
+        'default_department' => env('NOTION_DEFAULT_DEPARTMENT', 'GENERAL'),
+        'default_user_types' => ['student', 'employee', 'public'],
+        'auto_index' => env('NOTION_AUTO_INDEX', true),
+        'rate_limit' => [
+            'requests_per_second' => env('NOTION_RATE_LIMIT', 3),
+            'burst_limit' => env('NOTION_BURST_LIMIT', 10),
+        ],
     ],
     'piida' => [
         'base_url' => env('PIIDA_BASE_URL', 'https://piida.uan.mx'),

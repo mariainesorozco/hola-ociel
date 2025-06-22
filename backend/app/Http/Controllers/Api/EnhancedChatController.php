@@ -223,16 +223,7 @@ class EnhancedChatController extends Controller
         $context = [];
 
         try {
-            // 1. VERIFICAR que tenemos contenido en la base de datos
-            $totalContent = DB::table('knowledge_base')->where('is_active', true)->count();
-            Log::info('Total contenido activo en BD:', ['count' => $totalContent]);
-
-            if ($totalContent === 0) {
-                Log::warning('❌ NO HAY CONTENIDO ACTIVO EN KNOWLEDGE_BASE');
-                return $this->getEmergencyContext($message);
-            }
-
-            // 2. BÚSQUEDA DIRECTA usando KnowledgeBaseService
+            // BÚSQUEDA EXCLUSIVAMENTE VECTORIAL usando KnowledgeBaseService
             try {
                 $knowledgeResults = $this->knowledgeService->searchRelevantContent(
                     $message,
@@ -240,54 +231,20 @@ class EnhancedChatController extends Controller
                     $department
                 );
 
-                Log::info('Resultados KnowledgeBaseService:', [
+                Log::info('Resultados búsqueda vectorial:', [
                     'count' => count($knowledgeResults),
                     'first_result_preview' => !empty($knowledgeResults) ? substr($knowledgeResults[0], 0, 100) : 'ninguno'
                 ]);
 
                 if (!empty($knowledgeResults)) {
                     $context = array_merge($context, $knowledgeResults);
+                } else {
+                    Log::warning('❌ NO SE ENCONTRARON RESULTADOS EN BÚSQUEDA VECTORIAL');
+                    return $this->getEmergencyContext($message);
                 }
             } catch (\Exception $e) {
-                Log::error('Error en KnowledgeBaseService: ' . $e->getMessage());
-            }
-
-            // 3. BÚSQUEDA DE RESPALDO DIRECTA EN BD si no tenemos resultados
-            if (empty($context)) {
-                Log::warning('KnowledgeBaseService no retornó resultados, buscando directamente en BD...');
-
-                $directResults = $this->searchDirectInDatabase($message, $userType);
-                Log::info('Búsqueda directa en BD:', ['count' => count($directResults)]);
-
-                $context = array_merge($context, $directResults);
-            }
-
-            // 4. BÚSQUEDA POR PALABRAS CLAVE si aún no hay resultados
-            if (empty($context)) {
-                Log::warning('Sin resultados aún, probando búsqueda por palabras clave...');
-
-                $keywordResults = $this->searchByKeywords($message, $userType);
-                Log::info('Búsqueda por keywords:', ['count' => count($keywordResults)]);
-
-                $context = array_merge($context, $keywordResults);
-            }
-
-            // 5. BÚSQUEDA VECTORIAL (si está disponible)
-            if (count($context) < 2 && method_exists($this->knowledgeService, 'isSemanticSearchAvailable')) {
-                try {
-                    if ($this->knowledgeService->isSemanticSearchAvailable()) {
-                        // Nota: En tu código actual, searchRelevantContent YA incluye búsqueda vectorial
-                        Log::info('Búsqueda vectorial disponible pero ya incluida en searchRelevantContent');
-                    }
-                } catch (\Exception $e) {
-                    Log::info('Búsqueda vectorial no disponible: ' . $e->getMessage());
-                }
-            }
-
-            // 6. ÚLTIMO RECURSO: Contenido genérico de ayuda
-            if (empty($context)) {
-                Log::warning('❌ NO SE ENCONTRÓ CONTEXTO, usando contenido genérico');
-                $context = $this->getGenericHelpContext();
+                Log::error('Error en búsqueda vectorial: ' . $e->getMessage());
+                return $this->getEmergencyContext($message);
             }
 
             // 7. PROCESAR Y LIMITAR resultados
@@ -314,113 +271,8 @@ class EnhancedChatController extends Controller
         }
     }
 
-    /**
-     * MÉTODO NUEVO: Búsqueda directa en base de datos
-     */
-    private function searchDirectInDatabase(string $message, string $userType): array
-    {
-        try {
-            $words = explode(' ', strtolower($message));
-            $searchWords = array_filter($words, fn($word) => strlen(trim($word)) > 2);
 
-            if (empty($searchWords)) {
-                return [];
-            }
 
-            $query = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->where(function($q) use ($searchWords) {
-                    foreach ($searchWords as $word) {
-                        $q->orWhere('title', 'LIKE', "%{$word}%")
-                        ->orWhere('content', 'LIKE', "%{$word}%");
-                    }
-                });
-
-            // Filtro por tipo de usuario si está disponible
-            if ($userType && $userType !== 'public') {
-                $query->where(function($q) use ($userType) {
-                    $q->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)])
-                    ->orWhereRaw('JSON_CONTAINS(user_types, ?)', [json_encode('public')]);
-                });
-            }
-
-            $results = $query->orderBy('priority', 'desc')
-                            ->orderBy('updated_at', 'desc')
-                            ->limit(5)
-                            ->get(['content', 'title', 'category']);
-
-            Log::info('Búsqueda directa ejecutada:', [
-                'search_words' => $searchWords,
-                'results_count' => $results->count(),
-                'first_title' => $results->first()->title ?? 'ninguno'
-            ]);
-
-            return $results->pluck('content')->toArray();
-
-        } catch (\Exception $e) {
-            Log::error('Error en búsqueda directa: ' . $e->getMessage());
-            return [];
-        }
-    }
-
-    /**
-     * MÉTODO NUEVO: Búsqueda por palabras clave específicas
-     */
-    private function searchByKeywords(string $message, string $userType): array
-    {
-        $messageLower = strtolower($message);
-
-        // Mapeo de palabras clave a búsquedas específicas
-        $keywordMappings = [
-            'correo' => ['correo', 'email', 'cuenta', 'usuario'],
-            'contraseña' => ['contraseña', 'password', 'clave', 'olvidé'],
-            'activar' => ['activar', 'activación', 'habilitar', 'crear'],
-            'sistema' => ['sistema', 'plataforma', 'acceso', 'login'],
-            'soporte' => ['soporte', 'ayuda', 'problema', 'error'],
-            'inscripción' => ['inscripción', 'inscribir', 'registro', 'matricula'],
-            'biblioteca' => ['biblioteca', 'libros', 'préstamo', 'acervo'],
-            'laboratorio' => ['laboratorio', 'lab', 'práctica', 'equipo']
-        ];
-
-        foreach ($keywordMappings as $category => $keywords) {
-            foreach ($keywords as $keyword) {
-                if (str_contains($messageLower, $keyword)) {
-                    return $this->getContentByCategory($category, $userType);
-                }
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * MÉTODO NUEVO: Obtener contenido por categoría
-     */
-    private function getContentByCategory(string $category, string $userType): array
-    {
-        try {
-            $results = DB::table('knowledge_base')
-                ->where('is_active', true)
-                ->where(function($q) use ($category) {
-                    $q->where('category', 'LIKE', "%{$category}%")
-                    ->orWhere('title', 'LIKE', "%{$category}%")
-                    ->orWhere('content', 'LIKE', "%{$category}%");
-                })
-                ->orderBy('priority', 'desc')
-                ->limit(3)
-                ->get(['content']);
-
-            Log::info("Búsqueda por categoría '{$category}':", [
-                'results_count' => $results->count()
-            ]);
-
-            return $results->pluck('content')->toArray();
-
-        } catch (\Exception $e) {
-            Log::error("Error buscando categoría '{$category}': " . $e->getMessage());
-            return [];
-        }
-    }
 
     /**
      * MÉTODO NUEVO: Contexto de emergencia cuando todo falla

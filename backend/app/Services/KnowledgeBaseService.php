@@ -19,31 +19,33 @@ class KnowledgeBaseService
     }
 
     /**
-     * Buscar contenido relevante en la base de conocimientos - VERSIÓN MEJORADA
+     * Buscar contenido relevante en la base de conocimientos - SOLO BÚSQUEDA VECTORIAL
      */
     public function searchRelevantContent(string $query, string $userType = 'public', ?string $department = null): array
     {
-        Log::info('Searching knowledge base', [
+        Log::info('Searching knowledge base with vector search only', [
             'query' => $query,
             'user_type' => $userType,
             'department' => $department
         ]);
 
-        // 1. Búsqueda semántica usando embeddings (PRIORIDAD)
+        // SOLO búsqueda semántica usando embeddings
         $semanticResults = $this->semanticSearch($query, $userType, $department);
 
-        // 2. Búsqueda por palabras clave (COMPLEMENTARIA)
-        $keywordResults = $this->keywordSearch($query, $userType, $department);
+        if ($semanticResults->isEmpty()) {
+            Log::warning('No semantic search results found', [
+                'query' => $query,
+                'user_type' => $userType,
+                'department' => $department
+            ]);
+            return [];
+        }
 
-        // 3. Combinar y rankear resultados
-        $combinedResults = $this->combineAndRankResults($keywordResults, $semanticResults);
+        // Extraer solo el contenido textual para el contexto
+        $finalResults = $semanticResults->take(5)->pluck('content')->toArray();
 
-        // 4. Extraer solo el contenido textual para el contexto
-        $finalResults = $combinedResults->take(3)->pluck('content')->toArray();
-
-        Log::info('Search completed', [
+        Log::info('Vector search completed', [
             'semantic_count' => $semanticResults->count(),
-            'keyword_count' => $keywordResults->count(),
             'final_count' => count($finalResults)
         ]);
 

@@ -20,7 +20,7 @@ class QdrantVectorService
     public function __construct(OllamaService $ollamaService)
     {
         $this->baseUrl = config('services.qdrant.url', 'http://localhost:6333');
-        $this->collectionName = config('services.qdrant.collection', 'uan_knowledge');
+        $this->collectionName = config('services.qdrant.collection', 'ociel_knowledge');
         $this->vectorSize = config('services.qdrant.vector_size', 768);
         $this->ollamaService = $ollamaService;
 

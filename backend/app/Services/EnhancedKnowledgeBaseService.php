@@ -22,7 +22,7 @@ class EnhancedKnowledgeBaseService extends KnowledgeBaseService
     }
 
     /**
-     * Búsqueda inteligente específica para PIIDA que combina múltiples estrategias
+     * Búsqueda vectorial única para PIIDA usando exclusivamente Qdrant
      */
     public function searchPiidaContent(
         string $query,
@@ -31,57 +31,46 @@ class EnhancedKnowledgeBaseService extends KnowledgeBaseService
         array $options = []
     ): array {
         $searchOptions = array_merge([
-            'use_semantic' => true,
-            'use_keyword' => true,
             'max_results' => 5,
-            'score_threshold' => 0.7,
+            'score_threshold' => 0.6,
             'boost_recent' => true,
             'boost_priority' => true
         ], $options);
 
-        $results = [];
-
         try {
-            // 1. Búsqueda semántica con Qdrant (si está disponible)
-            if ($searchOptions['use_semantic'] && $this->qdrantService && $this->qdrantService->isHealthy()) {
-                $semanticResults = $this->executeSemanticSearch($query, $userType, $department, $searchOptions);
-                $results = array_merge($results, $semanticResults);
+            // Verificar que Qdrant esté disponible
+            if (!$this->qdrantService || !$this->qdrantService->isHealthy()) {
+                Log::error('Qdrant service not available for vector search');
+                throw new \Exception('Vector search service not available');
             }
 
-            // 2. Búsqueda por palabras clave mejorada
-            if ($searchOptions['use_keyword']) {
-                $keywordResults = $this->executeEnhancedKeywordSearch($query, $userType, $department, $searchOptions);
-                $results = array_merge($results, $keywordResults);
-            }
+            // Usar el método de búsqueda vectorial del servicio padre
+            $semanticResults = parent::searchRelevantContent($query, $userType, $department);
 
-            // 3. Búsqueda por patrones específicos de PIIDA
-            $patternResults = $this->executePatternBasedSearch($query, $userType, $department);
-            $results = array_merge($results, $patternResults);
+            // Procesar y rankear resultados
+            $finalResults = $this->processVectorResults($semanticResults, $query, $searchOptions);
 
-            // 4. Combinar, rankear y deduplicar resultados
-            $finalResults = $this->processAndRankResults($results, $query, $searchOptions);
-
-            // 5. Aplicar filtros específicos del usuario
+            // Aplicar filtros específicos del usuario
             $filteredResults = $this->applyUserTypeFilters($finalResults, $userType, $department);
 
-            Log::info('Búsqueda PIIDA completada', [
+            Log::info('Búsqueda vectorial PIIDA completada', [
                 'query' => $query,
                 'user_type' => $userType,
                 'results_count' => count($filteredResults),
-                'search_methods' => array_keys(array_filter($searchOptions, fn($v) => $v === true))
+                'search_method' => 'vector_only'
             ]);
 
             return array_slice($filteredResults, 0, $searchOptions['max_results']);
 
         } catch (\Exception $e) {
-            Log::error('Error en búsqueda PIIDA: ' . $e->getMessage(), [
+            Log::error('Error en búsqueda vectorial PIIDA: ' . $e->getMessage(), [
                 'query' => $query,
                 'user_type' => $userType,
                 'department' => $department
             ]);
 
-            // Fallback a búsqueda básica
-            return $this->executeBasicFallbackSearch($query, $userType, $department);
+            // Sin fallback a MariaDB - forzar error si Qdrant no funciona
+            return [];
         }
     }
 
@@ -114,54 +103,52 @@ class EnhancedKnowledgeBaseService extends KnowledgeBaseService
     }
 
     /**
-     * Búsqueda por palabras clave mejorada con análisis de contexto
+     * Procesar resultados exclusivamente vectoriales
      */
-    private function executeEnhancedKeywordSearch(
-        string $query,
-        string $userType,
-        ?string $department,
-        array $options
-    ): array {
-        $searchTerms = $this->analyzeSearchTerms($query);
+    private function processVectorResults(array $semanticResults, string $query, array $options): array
+    {
+        // Los resultados vienen como array de strings de contenido
+        // Convertirlos al formato esperado por el resto del sistema
+        return collect($semanticResults)->map(function($content, $index) use ($query, $options) {
+            return [
+                'id' => $index + 1, // ID temporal
+                'title' => 'Resultado ' . ($index + 1),
+                'content_preview' => substr($content, 0, 500),
+                'content' => $content,
+                'category' => 'vectorial',
+                'department' => 'GENERAL',
+                'contact_info' => '',
+                'source_url' => '',
+                'priority' => 'high',
+                'score' => 0.8, // Score base para resultados vectoriales
+                'search_type' => 'vector_only',
+                'final_score' => $this->calculateVectorScore($content, $query, $options)
+            ];
+        })->sortByDesc('final_score')->values()->toArray();
+    }
 
-        $baseQuery = DB::table('knowledge_base')
-            ->where('is_active', true)
-            ->whereRaw('JSON_CONTAINS(user_types, ?)', [json_encode($userType)]);
+    /**
+     * Calcular score para resultados vectoriales
+     */
+    private function calculateVectorScore(string $content, string $query, array $options): float
+    {
+        $baseScore = 0.8; // Score alto para resultados vectoriales
 
-        // Aplicar filtros
-        if ($department) {
-            $baseQuery->where(function($q) use ($department) {
-                $q->where('department', $department)
-                  ->orWhere('department', 'GENERAL');
-            });
+        // Boost por coincidencia de palabras clave en el contenido
+        $queryWords = explode(' ', strtolower($query));
+        $contentLower = strtolower($content);
+        
+        $matches = 0;
+        foreach ($queryWords as $word) {
+            if (strlen($word) > 2 && str_contains($contentLower, $word)) {
+                $matches++;
+            }
         }
+        
+        $matchRatio = count($queryWords) > 0 ? $matches / count($queryWords) : 0;
+        $baseScore += $matchRatio * 0.2;
 
-        // Filtrar por categorías PIIDA
-        $baseQuery->whereIn('category', array_keys($this->piidaCategories));
-
-        // Construir consulta de texto inteligente
-        $textQuery = $this->buildIntelligentTextQuery($searchTerms);
-
-        try {
-            // Usar full-text search con scoring
-            $results = $baseQuery
-                ->whereRaw($textQuery['where'], $textQuery['bindings'])
-                ->select([
-                    'id', 'title', 'content', 'category', 'department',
-                    'contact_info', 'priority', 'keywords', 'source_url', 'updated_at'
-                ])
-                ->selectRaw($textQuery['score_expression'] . ' as relevance_score')
-                ->orderByRaw($textQuery['order_by'])
-                ->limit($options['max_results'] * 2)
-                ->get();
-
-            return $this->formatKeywordResults($results, 'keyword');
-
-        } catch (\Exception $e) {
-            // Fallback a LIKE search
-            Log::warning('Full-text search falló, usando LIKE: ' . $e->getMessage());
-            return $this->executeLikeSearch($baseQuery, $searchTerms, $options['max_results']);
-        }
+        return min(1.0, max(0.0, $baseScore));
     }
 
     /**

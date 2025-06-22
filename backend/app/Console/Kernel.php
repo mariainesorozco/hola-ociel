@@ -29,6 +29,9 @@ class Kernel extends ConsoleKernel
         Commands\DebugQdrant::class,
         Commands\ImportMarkdown::class,
 
+        // Comandos para Notion
+        Commands\SyncNotionContent::class,
+
         // Otros comandos
         // Commands\UpdateEmbeddings::class,
         // Commands\ClearCache::class,
@@ -60,6 +63,15 @@ class Kernel extends ConsoleKernel
         $schedule->command('ociel:diagnose-ollama')
             ->everyThirtyMinutes()
             ->appendOutputTo(storage_path('logs/health-check.log'));
+
+        // Sincronización automática de Notion cada 4 horas (si está configurado)
+        if (config('services.notion.sync_enabled')) {
+            $schedule->command('ociel:sync-notion --update-existing')
+                ->everyFourHours()
+                ->withoutOverlapping()
+                ->runInBackground()
+                ->appendOutputTo(storage_path('logs/notion-sync.log'));
+        }
 
         // Limpiar cache viejo cada día
         // $schedule->command('ociel:clear-cache --type=knowledge')

@@ -178,7 +178,7 @@ class DebugQdrant extends Command
         $this->newLine();
         $this->warn('   2. Verificar variables de entorno:');
         $this->warn('      QDRANT_URL=http://localhost:6333');
-        $this->warn('      QDRANT_COLLECTION=uan_knowledge');
+        $this->warn('      QDRANT_COLLECTION=ociel_knowledge');
         $this->warn('      QDRANT_VECTOR_SIZE=768');
         $this->newLine();
         $this->warn('   3. Verificar logs de Laravel:');
