@@ -59,7 +59,7 @@ class OllamaService
         $result = $this->generateResponse($fullPrompt, [
             'model' => $model,
             'temperature' => 0.2, // Temperatura muy baja para consistencia
-            'max_tokens' => 500,   // Respuestas más concisas
+            'max_tokens' => 1200,  // Respuestas más completas con información importante
             'top_p' => 0.8,
             'repeat_penalty' => 1.1
         ]);
@@ -67,6 +67,8 @@ class OllamaService
         // Post-procesar respuesta para optimizar formato
         if ($result['success']) {
             $result = $this->postProcessOcielResponse($result, $context, $userMessage);
+            // Limpieza adicional para asegurar formato conversacional
+            $result['response'] = $this->stripAllMarkdownFormatting($result['response']);
         }
 
         return $result;
@@ -77,7 +79,52 @@ class OllamaService
      */
     private function buildOptimizedOcielPrompt(array $context, string $userType, ?string $department): string
     {
-        $prompt = "ERES OCIEL - ASISTENTE VIRTUAL OFICIAL DE LA UNIVERSIDAD AUTÓNOMA DE NAYARIT (UAN)\n\n";
+        $prompt = "ERES OCIEL 🐯 - AGENTE VIRTUAL SENPAI DE LA UNIVERSIDAD AUTÓNOMA DE NAYARIT (UAN)\n\n";
+        
+        $prompt .= "🎭 PERSONALIDAD DE OCIEL:\n";
+        $prompt .= "- Carismático y alegre: Entusiasta, positivo, generas confianza desde el primer mensaje\n";
+        $prompt .= "- Protector y empático: Siempre buscas que la persona se sienta acompañada y respaldada\n";
+        $prompt .= "- Claro y preciso: Brindas información completa y confiable, sin omitir datos importantes\n";
+        $prompt .= "- Accesible y cercano: Te comunicas como un compañero solidario, sin tecnicismos\n";
+        $prompt .= "- Responsable: Mantienes tono amigable sin trivializar temas importantes\n";
+        $prompt .= "- Respetuoso: Diriges mensajes con amabilidad, manteniendo ambiente seguro\n\n";
+        
+        $prompt .= "💝 VALORES QUE PROYECTAS: Apoyo, confianza, empatía, responsabilidad y sentido de comunidad\n\n";
+        
+        $prompt .= "⚠️ REGLA CRÍTICA ABSOLUTA: RESPONDE COMO COMPAÑERO SENPAI CONVERSANDO - JAMÁS USES FORMATO MARKDOWN VISIBLE\n\n";
+        
+        $prompt .= "🚫 PROHIBICIONES ABSOLUTAS - JAMÁS HAGAS ESTO:\n";
+        $prompt .= "❌ JAMÁS USES FORMATO MARKDOWN: ### Descripción, **Campo:**, 📋 Información encontrada:\n";
+        $prompt .= "❌ NO inventes números de teléfono, emails, horarios, costos o requisitos\n";
+        $prompt .= "❌ NO agregues información que no esté LITERALMENTE en el contexto\n";
+        $prompt .= "❌ NO inventes pasos de procesos o procedimientos\n";
+        $prompt .= "❌ NO uses datos genéricos o aproximaciones\n";
+        $prompt .= "❌ NO describas HOW-TO o tutoriales sin base en el contexto\n";
+        $prompt .= "❌ NO inventes ubicaciones específicas (edificios, calles, plazas)\n";
+        $prompt .= "❌ NO agregues detalles de 'dónde acudir' sin base documental\n";
+        $prompt .= "❌ SI NO TIENES INFORMACIÓN ESPECÍFICA DEL CONTEXTO, DI CLARAMENTE QUE NO LA TIENES\n\n";
+        
+        $prompt .= "✅ ÚNICAMENTE PERMITIDO:\n";
+        $prompt .= "✅ Citar TEXTUALMENTE información del contexto\n";
+        $prompt .= "✅ Mencionar que existe un servicio SI está en el contexto\n";
+        $prompt .= "✅ Describir el servicio usando SOLO las palabras del contexto\n";
+        $prompt .= "✅ INCLUIR TODA LA INFORMACIÓN DISPONIBLE: procedimientos completos, requisitos, contactos\n";
+        $prompt .= "✅ Proporcionar respuestas COMPLETAS con todos los detalles importantes\n";
+        $prompt .= "✅ Referir al usuario a consultar directamente si falta información\n\n";
+        
+        $prompt .= "📋 PATRÓN NOTION AI - EXTRACCIÓN ESTRUCTURADA:\n";
+        $prompt .= "1. LEE el contexto completo para identificar campos específicos\n";
+        $prompt .= "2. EXTRAE información exacta usando este orden de prioridad:\n";
+        $prompt .= "   - ID_Servicio (si existe)\n";
+        $prompt .= "   - Descripción exacta del servicio\n";
+        $prompt .= "   - Categoria y Subcategoria\n";
+        $prompt .= "   - Dependencia responsable\n";
+        $prompt .= "   - Modalidad (Presencial/En línea/Híbrida)\n";
+        $prompt .= "   - Usuarios (Estudiantes/Empleados/Público en general)\n";
+        $prompt .= "   - Estado (Activo/Inactivo)\n";
+        $prompt .= "   - Costo (si está especificado)\n";
+        $prompt .= "   - Contacto (SOLO si está en el contexto)\n";
+        $prompt .= "3. PRESENTA usando estructura clara tipo Notion\n\n";
 
         // === REGLAS CRÍTICAS DE FORMATO ===
         $prompt .= "REGLAS CRÍTICAS DE FORMATO - NUNCA LAS VIOLATES:\n";
@@ -86,23 +133,43 @@ class OllamaService
         $prompt .= "3. USA UN SOLO salto de línea (\\n) entre párrafos\n";
         $prompt .= "4. USA DOS saltos de línea (\\n\\n) solo entre secciones principales\n";
         $prompt .= "5. NO uses Markdown complejo, mantén el formato simple\n";
-        $prompt .= "6. MÁXIMO 4 párrafos por respuesta\n";
-        $prompt .= "7. UN SOLO contacto por respuesta\n\n";
+        $prompt .= "6. INCLUYE TODOS LOS DETALLES IMPORTANTES: procedimientos, requisitos, contactos\n";
+        $prompt .= "7. RESPUESTA COMPLETA: no cortes información a la mitad\n";
+        $prompt .= "8. UN SOLO contacto por respuesta\n\n";
 
-        // === REGLAS DE CONTENIDO ===
-        $prompt .= "REGLAS DE CONTENIDO:\n";
-        $prompt .= "1. SOLO responde con información del CONTEXTO OFICIAL proporcionado\n";
-        $prompt .= "2. Si NO tienes información específica, di: 'Para información específica contacta...'\n";
-        $prompt .= "3. NUNCA inventes datos, fechas, precios, requisitos o procedimientos\n";
-        $prompt .= "4. Si dudas, es mejor referir al departamento correspondiente\n\n";
+        // === REGLAS DE CONTENIDO CRÍTICAS ===
+        $prompt .= "REGLAS DE CONTENIDO CRÍTICAS:\n";
+        $prompt .= "1. SOLO responde con información de SERVICIOS INSTITUCIONALES de Notion\n";
+        $prompt .= "2. NUNCA INVENTES: teléfonos, emails, horarios, costos, requisitos o procedimientos\n";
+        $prompt .= "3. Si NO tienes información específica, di: 'Para más información sobre este servicio, consulta directamente con la institución'\n";
+        $prompt .= "4. NO uses números como 311-211-8800, 322-222-1234 o emails como estudiantes@uan.edu.mx a menos que vengan DEL CONTEXTO\n";
+        $prompt .= "5. Si dudas sobre cualquier dato, es mejor no incluirlo\n\n";
 
-        // === INFORMACIÓN DEL USUARIO ===
-        $prompt .= "PERFIL DEL USUARIO:\n";
+        // === INFORMACIÓN DEL USUARIO Y CATEGORÍAS UAN ===
+        $prompt .= "👤 PERFIL DEL USUARIO:\n";
         $prompt .= "- Tipo: " . ucfirst($userType) . "\n";
         if ($department) {
             $prompt .= "- Departamento: " . $department . "\n";
         }
-        $prompt .= "\n";
+        
+        $prompt .= "\n📚 CATEGORÍAS POR TIPO DE USUARIO (SISTEMA REAL UAN):\n";
+        $prompt .= "Para Estudiantes (student):\n";
+        $prompt .= "- tramites: Inscripción, titulación, certificados → SA\n";
+        $prompt .= "- servicios: Biblioteca, laboratorios, plataformas → BIBLIOTECA, DGS\n";
+        $prompt .= "- informacion_general: Oferta educativa, fechas importantes → GENERAL\n";
+        $prompt .= "- eventos: Actividades estudiantiles → DIFUSION\n\n";
+        
+        $prompt .= "Para Empleados (employee):\n";
+        $prompt .= "- tramites: Procesos administrativos internos → SA\n";
+        $prompt .= "- administrativa: Recursos humanos, nómina → SA\n";
+        $prompt .= "- investigacion: Desarrollo profesoral, academias → INVESTIGACION\n";
+        $prompt .= "- servicios: Sistemas, soporte técnico → DGS\n\n";
+        
+        $prompt .= "Para Público General (public):\n";
+        $prompt .= "- informacion_general: Información institucional → GENERAL\n";
+        $prompt .= "- eventos: Convocatorias, actividades abiertas → DIFUSION\n";
+        $prompt .= "- noticias: Comunicación institucional → SECRETARIA_GENERAL\n";
+        $prompt .= "- oferta_educativa: Programas disponibles → GENERAL\n\n";
 
         // === CONTEXTO OFICIAL ===
         if (!empty($context)) {
@@ -114,41 +181,90 @@ class OllamaService
             $prompt .= "CONTEXTO: Sin información específica disponible para esta consulta.\n\n";
         }
 
-        // === CONTACTOS VERIFICADOS ===
-        $prompt .= "CONTACTOS OFICIALES VERIFICADOS:\n";
-        $prompt .= "- SA (Servicios Académicos): 311-211-8800 ext. 8803\n";
-        $prompt .= "- DGS (Sistemas): 311-211-8800 ext. 8640\n";
-        $prompt .= "- Biblioteca: 311-211-8800 ext. 8837\n";
-        $prompt .= "- Información general: 311-211-8800\n";
-        $prompt .= "- Sitio web: https://www.uan.edu.mx\n\n";
+        // === INFORMACIÓN DE CONTACTO Y MAPEO DE SECRETARÍAS ===
+        $prompt .= "📞 MAPEO DE CONTACTOS POR SECRETARÍA UAN:\n";
+        $prompt .= "- Secretaría Académica: 311-211-8800 ext. 8520, secretaria.academica@uan.edu.mx\n";
+        $prompt .= "- Secretaría General: 311-211-8800 ext. 8510, secretaria.general@uan.edu.mx\n";
+        $prompt .= "- Secretaría de Administración: 311-211-8800 ext. 8550, administracion@uan.edu.mx\n";
+        $prompt .= "- Secretaría de Finanzas: 311-211-8800 ext. 8560, finanzas@uan.edu.mx\n";
+        $prompt .= "- Secretaría de Investigación y Posgrado: 311-211-8800 ext. 8580, investigacion@uan.edu.mx\n";
+        $prompt .= "- Dir. Infraestructura y Servicios Tecnológicos: 311-211-8800 ext. 8640, sistemas@uan.edu.mx\n";
+        $prompt .= "- Dir. Nómina y Recursos Humanos: 311-211-8800 ext. 8570, recursoshumanos@uan.edu.mx\n\n";
+        
+        $prompt .= "🔗 REGLAS DE CONTACTO:\n";
+        if (!empty($context)) {
+            $prompt .= "- PRIORIZA información de contacto presente en el contexto de Notion\n";
+            $prompt .= "- Si el contexto no tiene contacto específico, usa el mapeo de secretarías según el trámite\n";
+            $prompt .= "- SIEMPRE incluye extensión telefónica específica y correo exacto\n";
+        } else {
+            $prompt .= "- Usa el mapeo de secretarías según el tipo de consulta\n";
+            $prompt .= "- Para consultas generales: 'Para contactar sobre este servicio, consulta directamente con la institución'\n";
+        }
+        $prompt .= "\n";
 
         // === ESTRUCTURA DE RESPUESTA OBLIGATORIA ===
         $prompt .= "ESTRUCTURA OBLIGATORIA DE RESPUESTA:\n";
         $prompt .= "1. SALUDO: Breve y apropiado (1 línea)\n";
         $prompt .= "2. INFORMACIÓN: Principal y relevante (2-3 párrafos cortos)\n";
-        $prompt .= "3. CONTACTO: UN solo contacto específico y relevante\n";
+        $prompt .= "3. CONTACTO: SOLO si está en el contexto, si no hay contexto NO agregues contacto\n";
         $prompt .= "4. SEGUIMIENTO: Pregunta breve si corresponde\n\n";
 
-        // === EJEMPLOS DE FORMATO CORRECTO ===
-        $prompt .= "EJEMPLO DE FORMATO CORRECTO:\n";
-        $prompt .= "¡Hola! Te ayudo con información sobre [tema].\n\n";
-        $prompt .= "Para [trámite/servicio] necesitas:\n";
-        $prompt .= "- Requisito 1\n";
-        $prompt .= "- Requisito 2\n";
-        $prompt .= "- Requisito 3\n\n";
-        $prompt .= "El proceso es sencillo y puedes realizarlo en [ubicación].\n\n";
-        $prompt .= "📞 SA: 311-211-8800 ext. 8803\n\n";
-        $prompt .= "¿Necesitas información sobre algún requisito específico?\n\n";
+        // === FORMATO DE RESPUESTA OPTIMIZADO ESTILO OCIEL ===
+        $prompt .= "📝 ESTRUCTURA REQUERIDA (ESTILO SENPAI DIGITAL):\n";
+        $prompt .= "1. SALUDO CARISMÁTICO Y EMPÁTICO (1 línea con emoji 🐯 o relacionado)\n";
+        $prompt .= "2. INFORMACIÓN PRINCIPAL CLARA Y CERCANA (2-3 párrafos cortos, tono de compañero)\n";
+        $prompt .= "3. PASOS/REQUISITOS ORGANIZADOS (lista con guiones simples, lenguaje accesible)\n";
+        $prompt .= "4. CONTACTO ESPECÍFICO + OFERTA DE APOYO CONTINUO (con emoji 🐾 o similar)\n\n";
+        
+        $prompt .= "🗣️ REGLAS DE TONO Y ESTILO:\n";
+        $prompt .= "- Lenguaje claro, cálido y directo: Evita tecnicismos y expresiones institucionales frías\n";
+        $prompt .= "- Frases completas y correctas: Sin modismos (evita 'pa'', 'ta' bien', 'órale')\n";
+        $prompt .= "- Amable en cualquier situación: Mantén tono de apoyo incluso en temas formales\n";
+        $prompt .= "- Emojis moderados y estratégicos: Úsalos para reforzar calidez, sin saturar\n";
+        $prompt .= "- Disposición a seguir apoyando: Siempre muestra que estás disponible para más ayuda\n\n";
+        
+        $prompt .= "💬 FRASES CARACTERÍSTICAS DE OCIEL:\n";
+        $prompt .= "- Aperturas: '¡Claro que sí!' | '¡Perfecto!' | 'Te ayudo con eso 🐯'\n";
+        $prompt .= "- Transiciones: 'Te cuento...' | 'Es súper fácil...' | 'Los pasos son claros:'\n";
+        $prompt .= "- Cierres: '¿Necesitas algo más?' | 'Estoy aquí para apoyarte 🐾' | 'Aquí estaré para lo que necesites'\n\n";
+        
+        $prompt .= "✅ EJEMPLO CORRECTO ESTILO OCIEL:\n";
+        $prompt .= "¡Claro que sí! 🐯 Te ayudo con el cambio de programa académico.\n\nEl trámite cuesta $86.88 y se realiza a través de la Secretaría Académica. Es para cambios dentro de la misma área del conocimiento.\n\nLos pasos principales son:\n- Ingresar a PiiDA: https://piida.uan.mx/alumnos/cpa\n- Elaborar expediente con historial académico\n- Entregar a la Coordinación de Desarrollo Escolar\n\nContacto: Edificio PiiDA, Primera Planta - Tel: (311) 211 8800 ext. 6613\n¿Necesitas que te explique algún paso específico? Estoy aquí para apoyarte 🐾\n\n";
+        
+        $prompt .= "❌ EJEMPLO PROHIBIDO - JAMÁS HAGAS ESTO:\n";
+        $prompt .= "📋 Información encontrada:\n### Descripción\nServicio de activación automática...\n**Usuarios:** Estudiantes\n**Modalidad:** En línea\n### Contacto\n...\n\n";
+        $prompt .= "⚠️ El ejemplo anterior está PROHIBIDO. NUNCA respondas así.\n\n";
 
-        // === INSTRUCCIONES FINALES ===
-        $prompt .= "INSTRUCCIONES FINALES:\n";
-        $prompt .= "- Responde en español mexicano formal pero amigable\n";
-        $prompt .= "- Usa SOLO UN emoji por línea de contacto: 📞 para teléfonos, 📧 para emails\n";
-        $prompt .= "- NO repitas números de teléfono en la misma línea\n";
-        $prompt .= "- Formato de contacto: '📞 SA: 311-211-8800 ext. 8803' (sin duplicar números)\n";
-        $prompt .= "- Si no tienes información completa, deriva al contacto apropiado\n";
-        $prompt .= "- Mantén siempre un tono profesional y empático\n";
-        $prompt .= "- Termina con una pregunta de seguimiento cuando sea apropiado\n\n";
+        // === INSTRUCCIONES NOTION AI ESPECÍFICAS ===
+        $prompt .= "MODO NOTION AI ACTIVADO - EXTRACCIÓN EXACTA:\n\n";
+        $prompt .= "🔍 **ANÁLISIS DEL CONTEXTO:**\n";
+        $prompt .= "1. Busca campos específicos: ID_Servicio, Categoria, Subcategoria, Dependencia\n";
+        $prompt .= "2. Identifica datos estructurados: Modalidad, Usuarios, Estado, Costo\n";
+        $prompt .= "3. Localiza sección '### Contacto' si existe\n\n";
+        $prompt .= "📊 **EXTRACCIÓN DE DATOS:**\n";
+        $prompt .= "- Si encuentras 'Categoria:', extrae el valor exacto\n";
+        $prompt .= "- Si encuentras 'Dependencia:', extrae el nombre completo\n";
+        $prompt .= "- Si encuentras 'Modalidad:', usa el valor exacto\n";
+        $prompt .= "- Si encuentras 'Usuarios:', copia la descripción\n";
+        $prompt .= "- Si encuentras 'Estado:', indica si es Activo/Inactivo\n";
+        $prompt .= "- Si encuentras 'Costo:', usa el valor exacto (Gratuito/Pagado/monto)\n\n";
+        $prompt .= "📞 **CONTACTO - REGLA ESTRICTA:**\n";
+        $prompt .= "- SOLO si hay '### Contacto' en el contexto\n";
+        $prompt .= "- Copia EXACTAMENTE teléfonos, emails, ubicaciones, horarios\n";
+        $prompt .= "- NO agregues contactos genéricos de la UAN\n";
+        $prompt .= "- Si no hay contacto específico, omite la sección completamente\n\n";
+        $prompt .= "✅ **VALIDACIÓN FINAL CRÍTICA - INFORMACIÓN ESPECÍFICA:**\n";
+        $prompt .= "- Revisa palabra por palabra que cada dato venga del contexto\n";
+        $prompt .= "- Si algo no está en el contexto, NO lo incluyas\n";
+        $prompt .= "- COSTOS EXACTOS: Siempre mencionar monto específico si hay costo ($86.88, $1,800.00, $113.00)\n";
+        $prompt .= "- PASOS NUMERADOS: Resumir procedimientos de manera clara del contexto\n";
+        $prompt .= "- CONTACTOS COMPLETOS: Extensión telefónica, correo específico, ubicación exacta\n";
+        $prompt .= "- PLATAFORMAS PRECISAS: URLs exactas cuando corresponda (piida.uan.mx, virtual.uan.edu.mx)\n";
+        $prompt .= "- RESTRICCIONES IMPORTANTES: Limitaciones, plazos, condiciones especiales\n";
+        $prompt .= "- IDs DE SERVICIOS: Cuando sea relevante para seguimiento (SA-MOVINT-001, EGEGEL-001)\n";
+        $prompt .= "- PLAZOS Y RESTRICCIONES: Mencionar tiempos de respuesta (24 horas, 48 horas, 10 días hábiles)\n";
+        $prompt .= "- Si falta información, dilo claramente en lugar de inventar\n";
+        $prompt .= "- MEJOR RESPUESTA PRECISA Y CÁLIDA que VAGA E INVENTADA\n\n";
 
         return $prompt;
     }
@@ -168,7 +284,7 @@ class OllamaService
         $result['confidence'] = $confidence;
 
         // 3. Si la confianza es muy baja, usar respuesta de respaldo
-        if ($confidence < 0.6) {
+        if ($confidence < 0.3) { // Threshold más bajo para usar menos fallbacks
             $result['response'] = $this->generateFallbackResponse($userMessage, $context);
             $result['confidence'] = 0.8;
             $result['fallback_used'] = true;
@@ -176,37 +292,45 @@ class OllamaService
             $result['response'] = $response;
         }
 
-        // 4. Validar y mejorar contactos
-        $result['response'] = $this->validateContacts($result['response']);
+        // 4. Validar y limpiar contactos inventados (con filtros más específicos)
+        if ($result['success']) {
+            $result['response'] = $this->cleanFakeContactsMinimal($result['response'], $context);
+        }
 
         return $result;
     }
 
     /**
-     * Optimizar formato de respuesta para evitar desfase
+     * Optimizar formato de respuesta para conversación natural
      */
     private function optimizeResponseFormat(string $response): string
     {
-        // 1. Convertir asteriscos a guiones en listas
-        $response = preg_replace('/^\* /m', '- ', $response);
-        $response = preg_replace('/^\*\*/m', '**', $response);
+        // 1. ELIMINAR COMPLETAMENTE formato markdown visible
+        $response = preg_replace('/📋\s*Información encontrada:\s*/i', '', $response);
+        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $response); // Quitar headers
+        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $response); // Quitar campos en negritas
+        
+        // 2. Eliminar secciones estructuradas
+        $response = preg_replace('/### Descripción\s*/i', '', $response);
+        $response = preg_replace('/### Contacto\s*/i', '', $response);
+        $response = preg_replace('/\*\*Modalidad:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Usuarios:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Dependencia:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Estado:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Costo:\*\*/i', '', $response);
 
-        // 2. Eliminar múltiples saltos de línea
+        // 3. Convertir listas a texto fluido
+        $response = preg_replace('/^\* /m', '', $response);
+        $response = preg_replace('/^- /m', '', $response);
+
+        // 4. Limpiar múltiples saltos de línea
         $response = preg_replace('/\n{3,}/', "\n\n", $response);
 
-        // 3. Asegurar espaciado correcto después de listas
-        $response = preg_replace('/(-\s.+)\n([A-Z])/m', '$1' . "\n\n" . '$2', $response);
+        // 5. Eliminar líneas que quedaron vacías después de limpieza
+        $response = preg_replace('/^\s*$/m', '', $response);
+        $response = preg_replace('/\n{2,}/', "\n\n", $response);
 
-        // 4. Limpiar formato de títulos
-        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '**$1**', $response);
-
-        // 5. Asegurar formato correcto de contactos
-        $response = preg_replace('/📞\s*(.+)/', '📞 $1', $response);
-
-        // 6. Eliminar espacios en blanco al final de líneas
-        $response = preg_replace('/[ \t]+$/m', '', $response);
-
-        // 7. Asegurar que no hay líneas vacías al inicio o final
+        // 6. Asegurar que no hay líneas vacías al inicio o final
         $response = trim($response);
 
         return $response;
@@ -232,8 +356,8 @@ class OllamaService
             $confidence -= 0.1;
         }
 
-        // Bonus por tener contacto oficial
-        if (preg_match('/311-211-8800|ext\.\s*\d+|@uan\.edu\.mx/', $response)) {
+        // Bonus por tener contacto real del contexto
+        if (preg_match('/\d{3}-\d{3}-\d{4}|ext\.\s*\d+|@uan\.edu\.mx/', $response)) {
             $confidence += 0.1;
         }
 
@@ -262,8 +386,8 @@ class OllamaService
             return false;
         }
 
-        // Debe tener al menos un contacto
-        if (!preg_match('/📞|311-211-8800/', $response)) {
+        // Debe tener información útil (contacto o contenido específico)
+        if (!preg_match('/📞|\d{3}-\d{3}-\d{4}|procedimiento|requisitos|información/', $response)) {
             return false;
         }
 
@@ -277,80 +401,107 @@ class OllamaService
     {
         $messageLower = strtolower($userMessage);
 
-        // Respuestas específicas por tipo de consulta
+        // Respuestas específicas con personalidad Ociel Senpai
         if (preg_match('/inscripci[oó]n|admisi[oó]n/', $messageLower)) {
-            return "¡Hola! Te ayudo con información sobre inscripciones.\n\n" .
-                   "Para el proceso de inscripción necesitas:\n" .
-                   "- Certificado de bachillerato\n" .
-                   "- Aprobar examen de admisión\n" .
-                   "- Completar documentación requerida\n\n" .
-                   "📞 SA: 311-211-8800 ext. 8803\n\n" .
-                   "¿Necesitas información sobre fechas de convocatoria?";
+            return "¡Claro que sí! 🐯 Te ayudo con información sobre inscripciones y admisión.\n\n" .
+                   "Te cuento que para estos temas es importante revisar la información más actualizada. Te recomiendo contactar directamente con la Secretaría Académica.\n\n" .
+                   "Contacto: 311-211-8800 ext. 8520 - secretaria.academica@uan.edu.mx\n\n" .
+                   "¿Hay algún proceso de inscripción específico sobre el que necesites información? Estoy aquí para apoyarte 🐾";
         }
 
         if (preg_match('/carrera|licenciatura/', $messageLower)) {
-            return "¡Hola! Te comparto información sobre nuestra oferta educativa.\n\n" .
-                   "La UAN ofrece más de 40 programas de licenciatura en diversas áreas del conocimiento. " .
-                   "Cada programa está diseñado para formar profesionistas competentes.\n\n" .
-                   "📞 Información general: 311-211-8800\n\n" .
-                   "¿Te interesa alguna área específica del conocimiento?";
+            return "¡Perfecto! 🐯 Te ayudo con información sobre carreras y programas académicos.\n\n" .
+                   "Para conocer toda nuestra oferta educativa actualizada, te sugiero revisar la información oficial. Los datos más precisos los puedes obtener directamente.\n\n" .
+                   "Para más información: 311-211-8800 - información general\n\n" .
+                   "¿Te interesa información sobre alguna carrera en particular? Aquí estaré para lo que necesites 🐾";
         }
 
         if (preg_match('/sistema|soporte|plataforma/', $messageLower)) {
-            return "¡Hola! Te ayudo con soporte técnico.\n\n" .
-                   "Para problemas con sistemas, plataformas o acceso a servicios digitales, " .
-                   "nuestro equipo técnico especializado está disponible.\n\n" .
-                   "💻 DGS: 311-211-8800 ext. 8540\n\n" .
-                   "¿El problema es con alguna plataforma específica?";
+            return "¡Te ayudo con eso! 🐯 Para soporte técnico y sistemas estoy aquí.\n\n" .
+                   "Los compañeros de la Dirección de Infraestructura y Servicios Tecnológicos son los expertos en estos temas. Te recomiendo contactarlos directamente.\n\n" .
+                   "Contacto: 311-211-8800 ext. 8640 - sistemas@uan.edu.mx\n\n" .
+                   "¿El problema es con alguna plataforma específica? Estoy aquí para apoyarte 🐾";
         }
 
         // Respuesta general con contexto si existe
         if (!empty($context)) {
-            return "¡Hola! Encontré información relacionada con tu consulta.\n\n" .
+            return "¡Hola! 🐯 Encontré información relacionada con tu consulta.\n\n" .
                    substr($context[0], 0, 200) . "...\n\n" .
-                   "📞 Para información completa: 311-211-8800\n\n" .
-                   "¿Necesitas detalles sobre algún aspecto específico?";
+                   "¿Necesitas que profundice en algún aspecto específico? Estoy aquí para apoyarte 🐾";
         }
 
-        // Respuesta completamente general
-        return "¡Hola! Soy Ociel, tu asistente de la UAN.\n\n" .
-               "Estoy aquí para ayudarte con información sobre trámites, carreras, " .
-               "servicios y todo lo relacionado con nuestra universidad.\n\n" .
-               "📞 Información general: 311-211-8800\n\n" .
-               "¿Puedes ser más específico sobre lo que necesitas?";
+        // Respuesta completamente general con personalidad Ociel
+        return "¡Hola! Soy Ociel, tu compañero senpai digital 🐯\n\n" .
+               "Estoy aquí para acompañarte y proporcionarte información específica de los servicios de nuestra universidad. Me especializo en ayudar a estudiantes, empleados y público general con todo lo que necesiten.\n\n" .
+               "¿Sobre qué servicio específico necesitas información? Aquí estaré para lo que necesites 🐾";
     }
 
     /**
-     * Validar formato de contactos
+     * Limpiar contactos falsos inventados por el modelo
      */
-    private function validateContacts(string $response): string
+    private function cleanFakeContactsMinimal(string $response, array $context): string
     {
-        // Limpiar duplicaciones de teléfonos
-        $response = preg_replace('/311-211-8800\s+ext\.\s+311-211-8800\s+ext\.\s+(\d+)/', '311-211-8800 ext. $1', $response);
+        // Limpieza mínima para preservar contenido válido
+        
+        // Solo eliminar patrones claramente inventados
+        $response = preg_replace('/555[-\s]?555[-\s]?5555/', '', $response);
+        $response = preg_replace('/123[-\s]?456[-\s]?7890/', '', $response);
+        $response = preg_replace('/ejemplo@uan\.edu\.mx/', '', $response);
+        
+        return trim($response);
+    }
+    
+    private function cleanFakeContacts(string $response, array $context): string
+    {
+        Log::info('Cleaning fake contacts called', ['response_length' => strlen($response)]);
+        
+        // ESTRATEGIA SIMPLE: Eliminar TODOS los contactos inventados comunes
+        
+        // Eliminar CUALQUIER número de teléfono que parezca inventado
+        // Patrones comunes: 3XX XXX XXXX, 3XX-XXX-XXXX, +52 3XX XXX XXXX
+        $response = preg_replace('/\+?52\s?3\d{2}[-\s]?\d{3}[-\s]?\d{2,4}/', '', $response);
+        $response = preg_replace('/3\d{2}[-\s]?\d{3}[-\s]?\d{2,4}/', '', $response);
+        $response = preg_replace('/311[-\s]?211[-\s]?8800/', '', $response);
+        
+        // Eliminar CUALQUIER email @uan.edu.mx que parezca inventado
+        $response = preg_replace('/\[?[a-zA-Z0-9._-]+@uan\.edu\.mx\]?/', '', $response);
+        $response = preg_replace('/mailto:[a-zA-Z0-9._-]+@uan\.edu\.mx/', '', $response);
+        
+        // Limpiar líneas que quedaron vacías o solo con texto de enlace
+        $response = preg_replace('/.*\[?\]?\(mailto:\).*$/m', '', $response);
+        $response = preg_replace('/.*al teléfono\s*o por.*$/m', '', $response);
+        $response = preg_replace('/.*puedes contactar.*al teléfono.*$/m', '', $response);
+        $response = preg_replace('/.*\[.*\]\(mailto:.*\).*$/m', '', $response);
+        
+        // Si después de limpiar queda una sección de contacto vacía, eliminarla
+        $response = preg_replace('/\*\*Contacto\*\*\s*\n\n/', '', $response);
+        $response = preg_replace('/\*\*.*[Cc]ontacto.*\*\*\s*\n*$/', '', $response);
+        
+        // Limpiar líneas vacías múltiples
+        $response = preg_replace('/\n{3,}/', "\n\n", $response);
+        
+        return trim($response);
+    }
 
-        // Limpiar duplicaciones de íconos
-        $response = preg_replace('/📞\s*📞/', '📞', $response);
-
-        // Asegurar formato correcto de extensiones sin duplicar
-        $response = preg_replace('/\bext\.\s*8530\b(?!\s+ext\.)/', 'ext. 8530', $response);
-        $response = preg_replace('/\bext\.\s*8540\b(?!\s+ext\.)/', 'ext. 8540', $response);
-        $response = preg_replace('/\bext\.\s*8600\b(?!\s+ext\.)/', 'ext. 8600', $response);
-
-        // Solo agregar números completos si no están presentes
-        if (!preg_match('/311-211-8800/', $response) && preg_match('/\bext\.\s*8530\b/', $response)) {
-            $response = preg_replace('/\bext\.\s*8530\b/', '311-211-8800 ext. 8530', $response);
-        }
-        if (!preg_match('/311-211-8800/', $response) && preg_match('/\bext\.\s*8540\b/', $response)) {
-            $response = preg_replace('/\bext\.\s*8540\b/', '311-211-8800 ext. 8540', $response);
-        }
-        if (!preg_match('/311-211-8800/', $response) && preg_match('/\bext\.\s*8600\b/', $response)) {
-            $response = preg_replace('/\bext\.\s*8600\b/', '311-211-8800 ext. 8600', $response);
-        }
-
-        // Asegurar formato de emails sin duplicar
-        $response = preg_replace('/\b([a-z]+)@uan\.edu\.mx\b/', '$1@uan.edu.mx', $response);
-
-        return $response;
+    /**
+     * Limpieza adicional para eliminar cualquier rastro de formato markdown
+     */
+    private function stripAllMarkdownFormatting(string $response): string
+    {
+        // Eliminar cualquier formato estructurado que haya pasado los filtros anteriores
+        $response = preg_replace('/📋\s*Información encontrada:\s*/i', '', $response);
+        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $response);
+        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '$1: ', $response);
+        $response = preg_replace('/### (.+)/i', '$1', $response);
+        $response = preg_replace('/\*\*(.+?)\*\*/i', '$1', $response);
+        $response = preg_replace('/^\s*[-*]\s+/m', '', $response);
+        
+        // Limpiar líneas vacías resultantes
+        $response = preg_replace('/\n{3,}/', "\n\n", $response);
+        $response = preg_replace('/^\s*$/m', '', $response);
+        $response = preg_replace('/\n{2,}/', "\n\n", $response);
+        
+        return trim($response);
     }
 
     // === MÉTODOS EXISTENTES SIN CAMBIOS ===

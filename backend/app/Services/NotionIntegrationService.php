@@ -26,11 +26,11 @@ class NotionIntegrationService
         $this->markdownService = $markdownService;
 
         $this->client = new Client([
-            'base_uri' => $this->baseUrl,
+            'base_uri' => $this->baseUrl . '/',
             'timeout' => config('services.notion.timeout', 30),
             'headers' => [
                 'Authorization' => 'Bearer ' . $this->apiKey,
-                'Notion-Version' => '2022-06-28',
+                'Notion-Version' => config('services.notion.version', '2022-06-28'),
                 'Content-Type' => 'application/json'
             ]
         ]);
@@ -47,7 +47,8 @@ class NotionIntegrationService
         }
 
         try {
-            $response = $this->client->get('/users/me');
+            // Usar endpoint válido de Notion API - obtener información del bot
+            $response = $this->client->get('users/me');
             return $response->getStatusCode() === 200;
         } catch (\Exception $e) {
             Log::error('Notion health check failed: ' . $e->getMessage());
@@ -136,7 +137,7 @@ class NotionIntegrationService
                     $body['start_cursor'] = $startCursor;
                 }
 
-                $response = $this->client->post("/databases/{$databaseId}/query", [
+                $response = $this->client->post("databases/{$databaseId}/query", [
                     'json' => $body
                 ]);
 
@@ -167,60 +168,130 @@ class NotionIntegrationService
     {
         $pageId = $pageData['id'];
         
-        // 1. Obtener contenido completo de la página
-        $pageContent = $this->getPageContent($pageId);
+        Log::info('Starting sync for page', ['page_id' => $pageId]);
         
-        if (empty($pageContent['markdown'])) {
+        try {
+            // 1. Obtener contenido completo de la página
+            $pageContent = $this->getPageContent($pageId);
+            
+            Log::info('Page content retrieved', [
+                'page_id' => $pageId,
+                'has_markdown' => !empty($pageContent['markdown']),
+                'content_length' => strlen($pageContent['markdown'] ?? '')
+            ]);
+            
+            if (empty($pageContent['markdown'])) {
+                Log::warning('Page has empty content', ['page_id' => $pageId]);
+                return [
+                    'success' => false,
+                    'reason' => 'Empty content',
+                    'indexed' => false
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Error getting page content', [
+                'page_id' => $pageId,
+                'error' => $e->getMessage()
+            ]);
             return [
                 'success' => false,
-                'reason' => 'Empty content',
+                'reason' => 'Error getting content: ' . $e->getMessage(),
                 'indexed' => false
             ];
         }
 
-        // 2. Extraer metadatos
-        $metadata = $this->extractPageMetadata($pageData, $pageContent);
-        
-        // 3. Preparar datos para knowledge base
-        $knowledgeData = [
-            'title' => $metadata['title'],
-            'content' => $pageContent['markdown'],
-            'category' => $options['category'],
-            'department' => $options['department'],
-            'user_types' => json_encode($options['user_types']),
-            'keywords' => json_encode($metadata['keywords']),
-            'source_url' => $metadata['url'],
-            'priority' => $metadata['priority'],
-            'is_active' => true,
-            'created_by' => 'notion_sync',
-            'metadata' => json_encode([
-                'notion_id' => $pageId,
-                'last_edited' => $metadata['last_edited'],
-                'notion_url' => $metadata['url'],
-                'sync_timestamp' => now()->toISOString()
-            ])
-        ];
-
-        // 4. Verificar si ya existe
-        $existingId = $this->findExistingPage($pageId);
-        
-        if ($existingId && $options['update_existing']) {
-            // Actualizar página existente
-            $success = $this->knowledgeService->updateContent($existingId, $knowledgeData);
-            return [
-                'success' => $success,
-                'action' => 'updated',
-                'indexed' => $success && $options['auto_index'],
-                'knowledge_id' => $existingId
+        try {
+            // 2. Extraer metadatos
+            $metadata = $this->extractPageMetadata($pageData, $pageContent);
+            
+            Log::info('Page metadata extracted', [
+                'page_id' => $pageId,
+                'title' => $metadata['title'],
+                'keywords_count' => count($metadata['keywords']),
+                'priority' => $metadata['priority']
+            ]);
+            
+            // 3. Preparar datos para knowledge base
+            $knowledgeData = [
+                'title' => $metadata['title'],
+                'content' => $pageContent['markdown'],
+                'category' => $options['category'],
+                'department' => $options['department'],
+                'user_types' => json_encode($options['user_types']),
+                'keywords' => json_encode($metadata['keywords']),
+                'source_url' => $metadata['url'],
+                'priority' => $metadata['priority'],
+                'is_active' => true,
+                'created_by' => 'notion_sync',
+                'metadata' => json_encode([
+                    'notion_id' => $pageId,
+                    'last_edited' => $metadata['last_edited'],
+                    'notion_url' => $metadata['url'],
+                    'sync_timestamp' => now()->toISOString()
+                ])
             ];
-        } elseif (!$existingId) {
-            // Crear nueva página
-            $success = $this->knowledgeService->addContent($knowledgeData);
+            
+            Log::info('Knowledge data prepared', [
+                'page_id' => $pageId,
+                'title' => $knowledgeData['title'],
+                'content_length' => strlen($knowledgeData['content']),
+                'category' => $knowledgeData['category']
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error preparing knowledge data', [
+                'page_id' => $pageId,
+                'error' => $e->getMessage()
+            ]);
             return [
-                'success' => $success,
-                'action' => 'created',
-                'indexed' => $success && $options['auto_index'],
-                'knowledge_id' => null // No tenemos el ID de la nueva entrada
+                'success' => false,
+                'reason' => 'Error preparing data: ' . $e->getMessage(),
+                'indexed' => false
+            ];
+        }
+
+        try {
+            // 4. Verificar si ya existe
+            $existingId = $this->findExistingPage($pageId);
+            
+            Log::info('Checking existing page', [
+                'page_id' => $pageId,
+                'existing_id' => $existingId,
+                'update_existing' => $options['update_existing']
+            ]);
+            
+            if ($existingId && $options['update_existing']) {
+                // Actualizar página existente
+                Log::info('Updating existing page', ['existing_id' => $existingId]);
+                $success = $this->knowledgeService->updateContent($existingId, $knowledgeData);
+                Log::info('Update result', ['success' => $success, 'existing_id' => $existingId]);
+                return [
+                    'success' => $success,
+                    'action' => 'updated',
+                    'indexed' => $success && $options['auto_index'],
+                    'knowledge_id' => $existingId
+                ];
+            } elseif (!$existingId) {
+                // Crear nueva página
+                Log::info('Creating new page', ['page_id' => $pageId]);
+                $success = $this->knowledgeService->addContent($knowledgeData);
+                Log::info('Create result', ['success' => $success, 'page_id' => $pageId]);
+                return [
+                    'success' => $success,
+                    'action' => 'created',
+                    'indexed' => $success && $options['auto_index'],
+                    'knowledge_id' => null // No tenemos el ID de la nueva entrada
+                ];
+            }
+        } catch (\Exception $e) {
+            Log::error('Error saving page to knowledge base', [
+                'page_id' => $pageId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return [
+                'success' => false,
+                'reason' => 'Error saving: ' . $e->getMessage(),
+                'indexed' => false
             ];
         }
 
@@ -238,15 +309,27 @@ class NotionIntegrationService
     {
         try {
             // 1. Obtener metadatos de la página
-            $pageResponse = $this->client->get("/pages/{$pageId}");
+            $pageResponse = $this->client->get("pages/{$pageId}");
             $pageData = json_decode($pageResponse->getBody(), true);
 
             // 2. Obtener bloques de contenido
-            $blocksResponse = $this->client->get("/blocks/{$pageId}/children?page_size=100");
+            $blocksResponse = $this->client->get("blocks/{$pageId}/children?page_size=100");
             $blocksData = json_decode($blocksResponse->getBody(), true);
 
             // 3. Convertir bloques a markdown
+            Log::info('Processing page blocks', [
+                'page_id' => $pageId,
+                'blocks_count' => count($blocksData['results'] ?? []),
+                'block_types' => array_unique(array_column($blocksData['results'] ?? [], 'type'))
+            ]);
+            
             $markdown = $this->convertBlocksToMarkdown($blocksData['results'] ?? []);
+            
+            Log::info('Markdown conversion result', [
+                'page_id' => $pageId,
+                'markdown_length' => strlen($markdown),
+                'markdown_preview' => substr($markdown, 0, 200)
+            ]);
 
             return [
                 'page_data' => $pageData,
@@ -269,9 +352,19 @@ class NotionIntegrationService
     private function convertBlocksToMarkdown(array $blocks): string
     {
         $markdown = '';
+        
+        Log::info('Converting blocks to markdown', [
+            'total_blocks' => count($blocks)
+        ]);
 
-        foreach ($blocks as $block) {
+        foreach ($blocks as $index => $block) {
             $type = $block['type'] ?? '';
+            
+            Log::debug('Processing block', [
+                'index' => $index,
+                'type' => $type,
+                'has_content' => isset($block[$type])
+            ]);
             
             switch ($type) {
                 case 'paragraph':

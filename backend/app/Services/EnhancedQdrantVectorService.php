@@ -22,7 +22,7 @@ class EnhancedQdrantVectorService
     {
         $this->baseUrl = config('services.qdrant.url', 'http://localhost:6333');
         $this->collectionName = config('services.qdrant.collection', 'ociel_knowledge');
-        $this->vectorSize = config('services.qdrant.vector_size', 768);
+        $this->vectorSize = (int) config('services.qdrant.vector_size', 768);
         $this->distanceMetric = config('services.qdrant.distance_metric', 'Cosine');
         $this->ollamaService = $ollamaService;
 
@@ -38,6 +38,14 @@ class EnhancedQdrantVectorService
             'timeout' => config('services.qdrant.timeout', 30),
             'headers' => $headers
         ]);
+    }
+
+    /**
+     * Obtener cliente HTTP para operaciones avanzadas
+     */
+    public function getClient()
+    {
+        return $this->client;
     }
 
     /**
@@ -304,6 +312,65 @@ class EnhancedQdrantVectorService
     }
 
     /**
+     * Búsqueda semántica específica para servicios de Notion
+     */
+    public function searchNotionServices(
+        string $query,
+        array $filters = [],
+        int $limit = 5,
+        float $scoreThreshold = 0.5
+    ): array {
+        try {
+            // Generar embedding de la consulta con contexto de servicios Notion
+            $contextualQuery = $this->enrichNotionQueryContext($query, $filters);
+            $queryEmbedding = $this->generateEmbeddingWithRetry($contextualQuery);
+
+            if (empty($queryEmbedding)) {
+                Log::warning("No se pudo generar embedding para consulta: {$query}");
+                return [];
+            }
+
+            // Construir filtros específicos de servicios Notion
+            $qdrantFilters = $this->buildNotionFilters($filters);
+
+            // Configurar búsqueda
+            $searchData = [
+                'vector' => $queryEmbedding,
+                'limit' => $limit,
+                'score_threshold' => $scoreThreshold,
+                'with_payload' => true,
+                'with_vector' => false
+            ];
+
+            if (!empty($qdrantFilters)) {
+                $searchData['filter'] = $qdrantFilters;
+            }
+
+            $response = $this->client->post("/collections/{$this->collectionName}/points/search", [
+                'json' => $searchData
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+            $results = $this->processNotionSearchResults($data['result'] ?? []);
+
+            Log::info("Búsqueda de servicios Notion completada", [
+                'query' => $query,
+                'results_count' => count($results),
+                'filters' => $filters
+            ]);
+
+            return $results;
+
+        } catch (RequestException $e) {
+            Log::error('Búsqueda de servicios Notion falló: ' . $e->getMessage(), [
+                'query' => $query,
+                'filters' => $filters
+            ]);
+            return [];
+        }
+    }
+
+    /**
      * Búsqueda híbrida que combina semántica y palabras clave
      */
     public function hybridSearchPiida(
@@ -453,8 +520,8 @@ class EnhancedQdrantVectorService
     {
         $qdrantFilters = ['must' => []];
 
-        // Filtro por tipo de usuario
-        if (isset($filters['user_type'])) {
+        // Filtro por tipo de usuario - Solo aplicar si NO es contenido de Notion
+        if (isset($filters['user_type']) && (!isset($filters['source_type']) || $filters['source_type'] !== 'notion')) {
             $qdrantFilters['must'][] = [
                 'key' => 'user_types',
                 'match' => ['any' => [$filters['user_type']]]
@@ -485,19 +552,47 @@ class EnhancedQdrantVectorService
             ];
         }
 
-        // Siempre filtrar por contenido activo
-        $qdrantFilters['must'][] = [
-            'key' => 'is_active',
-            'match' => ['value' => true]
-        ];
+        // Siempre filtrar por contenido activo - Solo para contenido PIIDA, no Notion
+        if (!isset($filters['source_type']) || $filters['source_type'] !== 'notion') {
+            $qdrantFilters['must'][] = [
+                'key' => 'is_active',
+                'match' => ['value' => true]
+            ];
+        }
 
-        // Filtrar por fuente PIIDA
-        $qdrantFilters['must'][] = [
-            'key' => 'source_type',
-            'match' => ['value' => 'piida']
-        ];
+        // Filtrar por tipo de fuente (PIIDA o Notion)
+        if (isset($filters['source_type'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'source_type',
+                'match' => ['value' => $filters['source_type']]
+            ];
+        } else {
+            // Por defecto, buscar en PIIDA
+            $qdrantFilters['must'][] = [
+                'key' => 'source_type',
+                'match' => ['value' => 'piida']
+            ];
+        }
 
         return $qdrantFilters;
+    }
+
+    /**
+     * Insertar o actualizar puntos en la colección
+     */
+    public function upsertPoints(array $points): bool
+    {
+        try {
+            $response = $this->client->put("/collections/{$this->collectionName}/points", [
+                'json' => ['points' => $points]
+            ]);
+
+            return $response->getStatusCode() === 200;
+
+        } catch (\Exception $e) {
+            Log::error('Error upserting points to Qdrant: ' . $e->getMessage());
+            return false;
+        }
     }
 
     private function processPiidaSearchResults(array $results): array
@@ -997,5 +1092,150 @@ class EnhancedQdrantVectorService
             'issues' => $issues,
             'checked_at' => now()->toISOString()
         ];
+    }
+
+    /**
+     * Métodos específicos para servicios de Notion
+     */
+
+    /**
+     * Enriquecer contexto de consulta para servicios de Notion
+     */
+    private function enrichNotionQueryContext(string $query, array $filters): string
+    {
+        $enrichedQuery = $query;
+
+        // Agregar contexto de tipo de usuario si está especificado
+        if (isset($filters['user_type'])) {
+            $enrichedQuery .= " (usuario: " . $filters['user_type'] . ")";
+        }
+
+        // Agregar contexto de categoría si está especificado
+        if (isset($filters['categoria'])) {
+            $enrichedQuery .= " (categoría: " . $filters['categoria'] . ")";
+        }
+
+        // Agregar contexto de dependencia si está especificado
+        if (isset($filters['dependencia'])) {
+            $enrichedQuery .= " (dependencia: " . $filters['dependencia'] . ")";
+        }
+
+        // Agregar contexto institucional específico para servicios
+        $enrichedQuery .= " Universidad Autónoma de Nayarit UAN servicios institucionales";
+
+        return $enrichedQuery;
+    }
+
+    /**
+     * Construir filtros específicos para servicios de Notion
+     */
+    private function buildNotionFilters(array $filters): array
+    {
+        $qdrantFilters = ['must' => []];
+
+        // Filtro por tipo de usuario - solo para servicios específicos
+        if (isset($filters['user_type']) && isset($filters['usuarios_especificos'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'usuarios',
+                'match' => ['any' => [$filters['user_type']]]
+            ];
+        }
+
+        // Filtro por categoría de servicio
+        if (isset($filters['categoria'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'categoria',
+                'match' => ['value' => $filters['categoria']]
+            ];
+        }
+
+        // Filtro por subcategoría
+        if (isset($filters['subcategoria'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'subcategoria',
+                'match' => ['value' => $filters['subcategoria']]
+            ];
+        }
+
+        // Filtro por dependencia
+        if (isset($filters['dependencia'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'dependencia',
+                'match' => ['value' => $filters['dependencia']]
+            ];
+        }
+
+        // Filtro por modalidad
+        if (isset($filters['modalidad'])) {
+            $qdrantFilters['must'][] = [
+                'key' => 'modalidad',
+                'match' => ['value' => $filters['modalidad']]
+            ];
+        }
+
+        // Filtro por estado activo
+        $qdrantFilters['must'][] = [
+            'key' => 'estado',
+            'match' => ['value' => 'Activo']
+        ];
+
+        // Filtrar por tipo de fuente (solo Notion)
+        $qdrantFilters['must'][] = [
+            'key' => 'source_type',
+            'match' => ['value' => 'notion']
+        ];
+
+        return $qdrantFilters;
+    }
+
+    /**
+     * Procesar resultados de búsqueda de servicios Notion
+     */
+    private function processNotionSearchResults(array $results): array
+    {
+        $processed = [];
+
+        foreach ($results as $result) {
+            $payload = $result['payload'] ?? [];
+
+            $processed[] = [
+                'id' => $result['id'],
+                'score' => $result['score'],
+                'title' => $payload['title'] ?? '',
+                'content_preview' => $payload['content_preview'] ?? '',
+                'categoria' => $payload['categoria'] ?? '',
+                'subcategoria' => $payload['subcategoria'] ?? '',
+                'dependencia' => $payload['dependencia'] ?? '',
+                'modalidad' => $payload['modalidad'] ?? '',
+                'usuarios' => $payload['usuarios'] ?? '',
+                'estado' => $payload['estado'] ?? '',
+                'costo' => $payload['costo'] ?? '',
+                'contact_info' => $payload['contact_info'] ?? '',
+                'search_type' => 'semantic_notion',
+                'relevance_explanation' => $this->generateNotionRelevanceExplanation($result, $payload)
+            ];
+        }
+
+        return $processed;
+    }
+
+    /**
+     * Generar explicación de relevancia para servicios de Notion
+     */
+    private function generateNotionRelevanceExplanation(array $result, array $payload): string
+    {
+        $score = $result['score'];
+        $categoria = $payload['categoria'] ?? '';
+        $subcategoria = $payload['subcategoria'] ?? '';
+
+        if ($score > 0.9) {
+            return "Altamente relevante - Coincidencia exacta en {$categoria} ({$subcategoria})";
+        } elseif ($score > 0.8) {
+            return "Muy relevante - Buena coincidencia en {$categoria}";
+        } elseif ($score > 0.7) {
+            return "Relevante - Servicio relacionado en {$categoria}";
+        } else {
+            return "Parcialmente relevante - Servicio disponible en {$categoria}";
+        }
     }
 }

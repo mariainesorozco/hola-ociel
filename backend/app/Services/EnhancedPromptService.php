@@ -36,17 +36,17 @@ class EnhancedPromptService
         // 3. Preparar mensaje completo
         $fullPrompt = $this->buildFullPrompt($systemPrompt, $userMessage, $context);
 
-        // 4. Generar respuesta con configuración optimizada
-        $response = $this->ollamaService->generateResponse($fullPrompt, [
-            'model' => $this->selectOptimalModel($queryType),
-            'temperature' => $this->getOptimalTemperature($queryType),
-            'max_tokens' => $this->getOptimalTokens($queryType)
-        ]);
+        // 4. Generar respuesta con configuración optimizada usando método Ociel
+        $response = $this->ollamaService->generateOcielResponse($userMessage, $context, $userType, $department);
 
         // 5. Validar y mejorar respuesta
         if ($response['success']) {
             $enhancedResponse = $this->enhanceResponse($response['response'], $queryType, $context);
             $response['response'] = $enhancedResponse;
+            
+            // 6. Limpiar contactos falsos inventados por el modelo
+            $response['response'] = $this->cleanFakeContacts($response['response'], $context);
+            
             $response['confidence'] = $this->calculateAdvancedConfidence($response, $context, $userMessage);
         }
 
@@ -127,41 +127,42 @@ class EnhancedPromptService
     }
 
     /**
-     * Prompt institucional base de alta calidad - CORREGIDO PARA MEJOR FORMATO
+     * Prompt institucional base con personalidad Ociel Senpai
      */
     private function getBaseInstitutionalPrompt(): string
     {
-        return "Eres Ociel, el Asistente Virtual Oficial de la Universidad Autónoma de Nayarit (UAN).
+        return "Eres Ociel 🐯, el Agente Virtual Senpai de la Universidad Autónoma de Nayarit (UAN).
 
-🎯 IDENTIDAD PROFESIONAL:
-- Representas la máxima autoridad informativa de la UAN
-- Eres la fuente oficial más confiable de información universitaria
-- Mantienes los más altos estándares de profesionalismo y precisión
-- Tu objetivo es resolver completamente cada consulta con excelencia
+🎭 PERSONALIDAD DE OCIEL:
+- Carismático y alegre: Entusiasta, positivo, generas confianza desde el primer mensaje
+- Protector y empático: Siempre buscas que la persona se sienta acompañada y respaldada
+- Claro y preciso: Brindas información completa y confiable, sin omitir datos importantes
+- Accesible y cercano: Te comunicas como un compañero solidario, sin tecnicismos
+- Responsable: Mantienes tono amigable sin trivializar temas importantes
+- Respetuoso: Diriges mensajes con amabilidad, manteniendo ambiente seguro
 
-⚖️ PRINCIPIOS FUNDAMENTALES:
-1. PRECISIÓN ABSOLUTA: Solo proporciona información 100% verificada
-2. TRANSPARENCIA TOTAL: Si no tienes información exacta, lo comunicas claramente
-3. SERVICIO INTEGRAL: Anticipas necesidades y ofreces soluciones completas
-4. ESCALACIÓN INTELIGENTE: Derives a especialistas cuando sea más efectivo
-5. MEJORA CONTINUA: Cada interacción debe superar las expectativas
+💝 VALORES QUE PROYECTAS: Apoyo, confianza, empatía, responsabilidad y sentido de comunidad
 
 🏛️ CONTEXTO INSTITUCIONAL:
 La Universidad Autónoma de Nayarit es una institución pública de educación superior de excelencia, comprometida con la formación integral, la investigación científica y el desarrollo regional de Nayarit, México.
 
-Fundada: 25 de abril de 1969
-Ubicación: Ciudad de la Cultura \"Amado Nervo\", Tepic, Nayarit
-Contacto Principal: 311-211-8800
-Portal Oficial: https://www.uan.edu.mx
+📝 ESTRUCTURA REQUERIDA (ESTILO SENPAI DIGITAL):
+1. SALUDO CARISMÁTICO Y EMPÁTICO (1 línea con emoji 🐯 o relacionado)
+2. INFORMACIÓN PRINCIPAL CLARA Y CERCANA (2-3 párrafos cortos, tono de compañero)
+3. PASOS/REQUISITOS ORGANIZADOS (lista con guiones simples, lenguaje accesible)
+4. CONTACTO ESPECÍFICO + OFERTA DE APOYO CONTINUO (con emoji 🐾 o similar)
 
-📋 INSTRUCCIONES CRÍTICAS DE FORMATO:
-- Usa UN SOLO salto de línea (\\n) entre párrafos cortos
-- Usa DOS saltos de línea (\\n\\n) solo para separar secciones principales
-- Para listas, usa guiones simples (-) con un espacio después
-- NO uses asteriscos (*) para listas
-- NO uses elementos de Markdown complejos
-- Mantén párrafos cortos de máximo 3 líneas
-- Estructura clara: Saludo, Información Principal, Contacto, Seguimiento";
+💬 FRASES CARACTERÍSTICAS DE OCIEL:
+- Aperturas: '¡Claro que sí!' | '¡Perfecto!' | 'Te ayudo con eso 🐯'
+- Transiciones: 'Te cuento...' | 'Es súper fácil...' | 'Los pasos son claros:'
+- Cierres: '¿Necesitas algo más?' | 'Estoy aquí para apoyarte 🐾' | 'Aquí estaré para lo que necesites'
+
+🗣️ REGLAS DE TONO Y ESTILO:
+- Lenguaje claro, cálido y directo: Evita tecnicismos y expresiones institucionales frías
+- Frases completas y correctas: Sin modismos (evita 'pa'', 'ta' bien', 'órale')
+- Amable en cualquier situación: Mantén tono de apoyo incluso en temas formales
+- Emojis moderados y estratégicos: Úsalos para reforzar calidez, sin saturar
+- Disposición a seguir apoyando: Siempre muestra que estás disponible para más ayuda";
     }
 
     /**
@@ -219,20 +220,30 @@ FORMATO:
 - Horarios en formato simple
 - Un solo contacto relevante",
 
-            'soporte_tecnico' => "💻 ESPECIALIZACIÓN EN SOPORTE TÉCNICO:
+            'soporte_tecnico' => "💻 MODO CONVERSACIONAL - SERVICIOS TECNOLÓGICOS:
 
-Como especialista en sistemas universitarios:
+❌ FORMATO PROHIBIDO:
+- NO usar markdown visible: ### Descripción, **Campo:**
+- NO mostrar estructura con headers
+- NO usar listas con emojis y campos separados como:
+  📋 Información encontrada:
+  ### Descripción
+  **Usuarios:** ...
+  **Modalidad:** ...
+  ### Contacto
 
-RESPUESTA ESTRUCTURADA:
-1. Confirmación del problema técnico
-2. Solución básica si es simple
-3. Contacto de soporte especializado
-4. Horarios de atención técnica
+✅ FORMATO REQUERIDO - CONVERSACIÓN NATURAL:
+Respuesta completamente conversacional que integre:
+- Saludo natural
+- Explicación del servicio en párrafos fluidos
+- Información de usuarios, modalidad, dependencia mencionada naturalmente
+- Contacto integrado al final solo si está en contexto
+- Pregunta de seguimiento
 
-IMPORTANTE:
-- Respuestas concisas para problemas técnicos
-- Derivar rápidamente a especialistas
-- Incluir extensión específica de sistemas",
+**EJEMPLO CORRECTO:**
+'¡Hola! Te ayudo con el servicio de correo electrónico institucional. Este servicio permite a los estudiantes activar automáticamente su cuenta de email universitario. Lo maneja la Dirección de Sistemas y funciona completamente en línea, así que puedes hacerlo desde cualquier lugar. ¿Tienes algún problema específico con la activación?'
+
+❌ NUNCA uses formato estructurado visible",
 
             'queja_problema' => "🛡️ ESPECIALIZACIÓN EN ATENCIÓN DE PROBLEMAS:
 
@@ -265,11 +276,33 @@ FORMATO:
         ];
 
         return $instructions[$queryType] ??
-            "📋 CONSULTA GENERAL:
+            "🤖 MODO CONVERSACIONAL - CONSULTA GENERAL:
 
-Proporciona información completa pero concisa.
-Estructura: Saludo, Información, Contacto, Seguimiento.
-Máximo 3 párrafos cortos.";
+❌ FORMATO ABSOLUTAMENTE PROHIBIDO:
+- NO mostrar: 📋 Información encontrada:
+- NO usar: ### Descripción, **Campo:**, **Modalidad:**
+- NO estructurar con headers visibles
+- NO usar listas de campos con emojis
+
+✅ FORMATO OBLIGATORIO - RESPUESTA NATURAL:
+- Conversación fluida como asistente humano
+- Información integrada en párrafos naturales  
+- Datos mencionados conversacionalmente
+- Sin formato markdown visible
+
+**EJEMPLOS CORRECTOS:**
+
+**SI HAY INFORMACIÓN COMPLETA:**
+'¡Hola! Te puedo ayudar con el servicio de activación de correo. Este servicio permite a los estudiantes de la universidad activar automáticamente su cuenta de email institucional. Lo maneja la Dirección de Sistemas y funciona completamente en línea, por lo que puedes hacerlo desde cualquier dispositivo. ¿Necesitas ayuda con algún paso en particular?'
+
+**SI FALTA INFORMACIÓN:**
+'¡Hola! Encontré información sobre ese servicio, pero no tengo todos los detalles específicos en este momento. Te recomiendo consultar directamente con la universidad para obtener información completa y actualizada. ¿Hay algo específico que te gustaría saber?'
+
+❌ REGLAS CRÍTICAS: 
+- NUNCA muestres estructura markdown
+- NO inventes procedimientos detallados
+- RESPUESTA CORTA Y REAL mejor que larga e inventada
+- Conversación natural, no formato técnico";
     }
 
     /**
@@ -311,7 +344,7 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
             $contextText .= "FUENTE " . ($i + 1) . ": " . substr($item, 0, 200) . "...\n";
         }
 
-        return $contextText . "\n✅ INSTRUCCIÓN: Usa ÚNICAMENTE esta información oficial. No agregues datos no verificados.";
+        return $contextText . "\n✅ INSTRUCCIÓN CRÍTICA: Usa ÚNICAMENTE esta información oficial. NO inventes ni agregues datos de contacto, costos, horarios o procedimientos que no estén en el contexto. Si no tienes información específica, dilo claramente y deriva al usuario a consultar directamente con la institución.";
     }
 
     /**
@@ -414,21 +447,34 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
     }
 
     /**
-     * Limpiar formato de respuesta para evitar desfase
+     * Limpiar formato de respuesta para conversación natural
      */
     private function cleanResponseFormat(string $response): string
     {
-        // Convertir asteriscos a guiones para listas
-        $response = preg_replace('/^\* /m', '- ', $response);
+        // 1. ELIMINAR COMPLETAMENTE formato markdown estructurado
+        $response = preg_replace('/📋\s*Información encontrada:\s*/i', '', $response);
+        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $response); // Quitar headers
+        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $response); // Quitar campos en negritas
+        
+        // 2. Eliminar secciones estructuradas específicas
+        $response = preg_replace('/### Descripción\s*/i', '', $response);
+        $response = preg_replace('/### Contacto\s*/i', '', $response);
+        $response = preg_replace('/\*\*Modalidad:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Usuarios:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Dependencia:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Estado:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Costo:\*\*/i', '', $response);
 
-        // Eliminar múltiples saltos de línea consecutivos
+        // 3. Convertir listas estructuradas a texto fluido
+        $response = preg_replace('/^\* /m', '', $response);
+        $response = preg_replace('/^- /m', '', $response);
+
+        // 4. Limpiar múltiples saltos de línea
         $response = preg_replace('/\n{3,}/', "\n\n", $response);
 
-        // Asegurar formato consistente para títulos
-        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '**$1**', $response);
-
-        // Limpiar espacios al final de líneas
-        $response = preg_replace('/[ \t]+$/m', '', $response);
+        // 5. Eliminar líneas vacías resultantes
+        $response = preg_replace('/^\s*$/m', '', $response);
+        $response = preg_replace('/\n{2,}/', "\n\n", $response);
 
         return trim($response);
     }
@@ -465,11 +511,11 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
     }
 
     /**
-     * Verificar si contiene información de contacto
+     * Verificar si contiene información de contacto del contexto
      */
     private function containsContactInfo(string $text): bool
     {
-        return preg_match('/\b311-211-8800\b|\b\w+@\w+\.edu\.mx\b|ext\.\s*\d+/i', $text);
+        return preg_match('/📞|📧|teléfono|correo|contacto/i', $text);
     }
 
     /**
@@ -495,18 +541,13 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
     }
 
     /**
-     * Obtener información de contacto relevante
+     * Obtener información de contacto relevante - SOLO DE NOTION
      */
     private function getRelevantContactInfo(string $queryType): string
     {
-        $contactMapping = [
-            'tramite_especifico' => "📞 Secretaría Académica: 311-211-8800 ext. 8803",
-            'soporte_tecnico' => "💻 DGS: 311-211-8800 ext. 8640",
-            'informacion_carrera' => "📞 Información general: 311-211-8800",
-            'servicio_universitario' => "📞 UAN: 311-211-8800"
-        ];
-
-        return $contactMapping[$queryType] ?? "📞 UAN: 311-211-8800";
+        // NO agregar información de contacto hardcodeada
+        // El contacto debe venir ÚNICAMENTE del contexto de Notion
+        return "";
     }
 
     /**
@@ -523,5 +564,69 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
         ];
 
         return $ctaMapping[$queryType] ?? "¿En qué más puedo ayudarte?";
+    }
+
+    /**
+     * Limpiar contactos falsos inventados por el modelo
+     */
+    private function cleanFakeContacts(string $response, array $context): string
+    {
+        // ESTRATEGIA SIMPLE: Eliminar TODOS los contactos inventados comunes
+        
+        // Eliminar CUALQUIER número de teléfono que parezca inventado
+        // Patrones comunes: 3XX XXX XXXX, 3XX-XXX-XXXX, +52 3XX XXX XXXX
+        $response = preg_replace('/\+?52\s?3\d{2}[-\s]?\d{3}[-\s]?\d{2,4}/', '', $response);
+        $response = preg_replace('/3\d{2}[-\s]?\d{3}[-\s]?\d{2,4}/', '', $response);
+        $response = preg_replace('/311[-\s]?211[-\s]?8800/', '', $response);
+        
+        // Eliminar CUALQUIER email @uan.edu.mx que parezca inventado
+        $response = preg_replace('/\[?[a-zA-Z0-9._-]+@uan\.edu\.mx\]?/', '', $response);
+        $response = preg_replace('/mailto:[a-zA-Z0-9._-]+@uan\.edu\.mx/', '', $response);
+        
+        // Limpiar líneas que quedaron vacías o solo con texto de enlace
+        $response = preg_replace('/.*\[?\]?\(mailto:\).*$/m', '', $response);
+        $response = preg_replace('/.*al teléfono\s*o por correo electrónico\s*\..*$/m', '', $response);
+        $response = preg_replace('/.*puedes contactar.*al teléfono\s*y por correo.*$/m', '', $response);
+        $response = preg_replace('/.*\[.*\]\(mailto:.*\).*$/m', '', $response);
+        
+        // Eliminar placeholders inventados
+        $response = preg_replace('/\[dirección completa\]/', '', $response);
+        $response = preg_replace('/\[número de teléfono\]/', '', $response);
+        $response = preg_replace('/\[dirección de correo electrónico\]/', '', $response);
+        $response = preg_replace('/\[ubicación específica\]/', '', $response);
+        $response = preg_replace('/al teléfono\s*y por correo electrónico/', '', $response);
+        
+        // Eliminar números de teléfono inventados específicos
+        $response = preg_replace('/\(55 5555 5555\)/', '', $response);
+        $response = preg_replace('/55 5555 5555/', '', $response);
+        $response = preg_replace('/\(555\) 555-5555/', '', $response);
+        
+        // Eliminar listas de pasos inventados comunes
+        $response = preg_replace('/1\.\s*Accede a la página.*?\n/', '', $response);
+        $response = preg_replace('/2\.\s*Ingresa tus datos.*?\n/', '', $response);
+        $response = preg_replace('/3\.\s*Recibirás un correo.*?\n/', '', $response);
+        $response = preg_replace('/4\.\s*Sigue las instrucciones.*?\n/', '', $response);
+        
+        // Eliminar frases que indican procedimientos inventados
+        $response = preg_replace('/Para activar tu cuenta, debes seguir los siguientes pasos:/', 'Para más información sobre el proceso de activación, consulta directamente con la institución.', $response);
+        
+        // Limpiar ubicaciones inventadas específicas
+        $response = preg_replace('/,\s*ubicado en la calle\s*,/', ',', $response);
+        $response = preg_replace('/,\s*ubicado en la calle\s*\./', '.', $response);
+        $response = preg_replace('/,\s*ubicada en el edificio de.*?\./', '.', $response);
+        $response = preg_replace('/,\s*ubicado en el edificio de.*?\./', '.', $response);
+        $response = preg_replace('/en la plaza principal de la universidad/', '', $response);
+        $response = preg_replace('/en el campus principal/', '', $response);
+        $response = preg_replace('/Allí podrás presentar tu solicitud.*?\./', '', $response);
+        $response = preg_replace('/Allí.*?activación.*?\./', '', $response);
+        
+        // Si después de limpiar queda una sección de contacto vacía, eliminarla
+        $response = preg_replace('/\*\*Contacto\*\*\s*\n\n/', '', $response);
+        $response = preg_replace('/\*\*.*[Cc]ontacto.*\*\*\s*\n*$/', '', $response);
+        
+        // Limpiar líneas vacías múltiples
+        $response = preg_replace('/\n{3,}/', "\n\n", $response);
+        
+        return trim($response);
     }
 }

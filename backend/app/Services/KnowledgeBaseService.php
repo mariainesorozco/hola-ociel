@@ -19,21 +19,21 @@ class KnowledgeBaseService
     }
 
     /**
-     * Buscar contenido relevante en la base de conocimientos - SOLO BÚSQUEDA VECTORIAL
+     * Buscar contenido relevante en la base de conocimientos - SOLO SERVICIOS DE NOTION
      */
     public function searchRelevantContent(string $query, string $userType = 'public', ?string $department = null): array
     {
-        Log::info('Searching knowledge base with vector search only', [
+        Log::info('Searching Notion services with semantic search', [
             'query' => $query,
             'user_type' => $userType,
             'department' => $department
         ]);
 
-        // SOLO búsqueda semántica usando embeddings
-        $semanticResults = $this->semanticSearch($query, $userType, $department);
+        // Búsqueda semántica en servicios de Notion únicamente
+        $semanticResults = $this->semanticSearchNotionServices($query, $userType, $department);
 
         if ($semanticResults->isEmpty()) {
-            Log::warning('No semantic search results found', [
+            Log::warning('No Notion content found in semantic search', [
                 'query' => $query,
                 'user_type' => $userType,
                 'department' => $department
@@ -44,7 +44,7 @@ class KnowledgeBaseService
         // Extraer solo el contenido textual para el contexto
         $finalResults = $semanticResults->take(5)->pluck('content')->toArray();
 
-        Log::info('Vector search completed', [
+        Log::info('Notion-only vector search completed', [
             'semantic_count' => $semanticResults->count(),
             'final_count' => count($finalResults)
         ]);
@@ -53,7 +53,60 @@ class KnowledgeBaseService
     }
 
     /**
-     * Búsqueda semántica usando embeddings - AHORA FUNCIONAL
+     * Búsqueda semántica EXCLUSIVA de servicios Notion
+     */
+    private function semanticSearchNotionServices(string $query, string $userType, ?string $department): Collection
+    {
+        // Verificar si el servicio vectorial está disponible
+        if (!$this->vectorService || !$this->vectorService->isHealthy()) {
+            Log::warning('Vector service not available for Notion semantic search');
+            return collect([]);
+        }
+
+        try {
+            // Preparar filtros específicos para Notion
+            $filters = [
+                'user_type' => $userType,
+                'source_type' => 'notion'  // FILTRO CRÍTICO: Solo contenido de Notion
+            ];
+            
+            if ($department) {
+                $filters['department'] = $department;
+            }
+
+            Log::info('Notion-only search filters', $filters);
+
+            // Ejecutar búsqueda semántica SOLO en servicios de Notion
+            // Usar threshold ajustado para servicios de Notion
+            $results = $this->vectorService->searchNotionServices($query, $filters, 5, 0.5);
+
+            // Convertir a formato estándar
+            return collect($results)->map(function ($result) {
+                return (object) [
+                    'id' => $result['id'],
+                    'title' => $result['title'] ?? '',
+                    'content' => $this->getFullContentById($result['id']),
+                    'category' => $result['category'] ?? '',
+                    'department' => $result['department'] ?? '',
+                    'contact_info' => null,
+                    'priority' => 'high', // Contenido de Notion tiene alta prioridad
+                    'search_type' => 'semantic_notion',
+                    'relevance_score' => $result['score'] ?? 0.8,
+                    'source_type' => 'notion'
+                ];
+            });
+
+        } catch (\Exception $e) {
+            Log::error('Notion semantic search failed', [
+                'error' => $e->getMessage(),
+                'query' => $query
+            ]);
+            return collect([]);
+        }
+    }
+
+    /**
+     * Búsqueda semántica usando embeddings - MÉTODO ORIGINAL (DEPRECATED)
      */
     private function semanticSearch(string $query, string $userType, ?string $department): Collection
     {
@@ -71,7 +124,7 @@ class KnowledgeBaseService
             }
 
             // Ejecutar búsqueda semántica
-            $results = $this->vectorService->searchSimilarContent($query, 5, $filters);
+            $results = $this->vectorService->searchPiidaContent($query, $filters, 5);
 
             // Convertir a formato estándar
             return collect($results)->map(function ($result) {
@@ -260,6 +313,12 @@ class KnowledgeBaseService
     public function addContent(array $data): bool
     {
         try {
+            Log::info('Adding content to knowledge base', [
+                'title' => $data['title'] ?? 'No title',
+                'category' => $data['category'] ?? 'No category',
+                'content_length' => strlen($data['content'] ?? '')
+            ]);
+            
             $data['created_at'] = now();
             $data['updated_at'] = now();
 
@@ -274,6 +333,8 @@ class KnowledgeBaseService
 
             // Insertar y obtener ID
             $id = DB::table('knowledge_base')->insertGetId($data);
+            
+            Log::info('Content inserted successfully', ['id' => $id]);
 
             // AUTO-INDEXAR EN QDRANT
             $this->autoIndexContent($id, $data);
@@ -281,7 +342,14 @@ class KnowledgeBaseService
             return true;
 
         } catch (\Exception $e) {
-            Log::error('Error adding knowledge base content: ' . $e->getMessage());
+            Log::error('Error adding knowledge base content', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'data_keys' => array_keys($data),
+                'title' => $data['title'] ?? 'No title'
+            ]);
             return false;
         }
     }
@@ -324,6 +392,7 @@ class KnowledgeBaseService
                     'category' => $data['category'] ?? 'general',
                     'department' => $data['department'] ?? 'GENERAL',
                     'keywords' => $keywords,
+                    'source_type' => $data['created_by'] === 'notion_sync' ? 'notion' : 'general',
                     'indexed_at' => now()->toISOString()
                 ];
 
@@ -427,6 +496,7 @@ class KnowledgeBaseService
                     'category' => $content->category,
                     'department' => $content->department,
                     'keywords' => $keywords,
+                    'source_type' => $content->created_by === 'notion_sync' ? 'notion' : 'general',
                     'indexed_at' => now()->toISOString()
                 ];
 

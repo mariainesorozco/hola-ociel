@@ -13,7 +13,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register()
     {
-        //
+        // Registrar KnowledgeBaseService con el EnhancedQdrantVectorService
+        $this->app->when(\App\Services\KnowledgeBaseService::class)
+            ->needs('$vectorService')
+            ->give(function ($app) {
+                return $app->make(\App\Services\EnhancedQdrantVectorService::class);
+            });
     }
 
     /**

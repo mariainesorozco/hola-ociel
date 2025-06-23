@@ -7,6 +7,7 @@ use App\Services\OllamaService;
 use App\Services\KnowledgeBaseService;
 use App\Services\EnhancedPromptService;
 use App\Services\GhostIntegrationService;
+use App\Services\EnhancedQdrantVectorService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -21,17 +22,20 @@ class EnhancedChatController extends Controller
     private $knowledgeService;
     private $promptService;
     private $ghostService;
+    private $qdrantService;
 
     public function __construct(
         OllamaService $ollamaService,
         KnowledgeBaseService $knowledgeService,
         EnhancedPromptService $promptService,
-        GhostIntegrationService $ghostService
+        GhostIntegrationService $ghostService,
+        EnhancedQdrantVectorService $qdrantService
     ) {
         $this->ollamaService = $ollamaService;
         $this->knowledgeService = $knowledgeService;
         $this->promptService = $promptService;
         $this->ghostService = $ghostService;
+        $this->qdrantService = $qdrantService;
     }
 
     /**
@@ -124,35 +128,12 @@ class EnhancedChatController extends Controller
                 'escalation_reasons' => $escalationDecision['reasons']
             ]);
 
-            // 8. RESPUESTA ENRIQUECIDA
+            // 8. RESPUESTA SIMPLIFICADA
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'response' => $response['response'] ?? '',
-                    'session_id' => $sessionId,
-                    'request_id' => $requestId,
-                    'confidence' => $qualityCheck['overall_confidence'],
-                    'quality_indicators' => [
-                        'completeness' => $qualityCheck['completeness_score'],
-                        'accuracy' => $qualityCheck['accuracy_score'],
-                        'helpfulness' => $qualityCheck['helpfulness_score']
-                    ],
-                    'model_used' => $response['model'] ?? 'unknown',
-                    'response_time' => $responseTime,
-                    'requires_human_follow_up' => $escalationDecision['escalate'],
-                    'escalation_priority' => $escalationDecision['priority'],
-                    'contact_info' => $this->getSmartContactInfo($department, $queryAnalysis, $context),
-                    'suggested_actions' => $this->getSmartSuggestedActions($message, $department, $context, $queryAnalysis),
-                    'related_topics' => $this->getRelatedTopics($context, $queryAnalysis),
-                    'feedback_options' => $this->getFeedbackOptions($queryAnalysis['query_type'])
-                ],
-                'metadata' => [
-                    'query_type' => $queryAnalysis['query_type'],
-                    'sentiment' => $queryAnalysis['sentiment'],
-                    'context_sources' => count($context),
-                    'processing_strategy' => $contextPreference,
-                    'timestamp' => now()->toISOString()
-                ]
+                'response' => $response['response'] ?? '',
+                'session_id' => $sessionId,
+                'confidence' => $qualityCheck['overall_confidence']
             ]);
 
         } catch (\Exception $e) {
@@ -223,27 +204,83 @@ class EnhancedChatController extends Controller
         $context = [];
 
         try {
-            // BÚSQUEDA EXCLUSIVAMENTE VECTORIAL usando KnowledgeBaseService
+            // BÚSQUEDA EXCLUSIVAMENTE EN BASE DE DATOS VECTORIAL QDRANT
             try {
-                $knowledgeResults = $this->knowledgeService->searchRelevantContent(
-                    $message,
-                    $userType,
-                    $department
-                );
+                // Determinar filtros basados en user type y department
+                $filters = [];
+                if ($userType) {
+                    $filters['user_type'] = $userType;
+                }
+                if ($department) {
+                    $filters['department'] = $department;
+                }
 
-                Log::info('Resultados búsqueda vectorial:', [
-                    'count' => count($knowledgeResults),
-                    'first_result_preview' => !empty($knowledgeResults) ? substr($knowledgeResults[0], 0, 100) : 'ninguno'
+                Log::info('🔍 Iniciando búsqueda en Qdrant (Notion)', [
+                    'query' => $message,
+                    'user_type' => $userType,
+                    'department' => $department,
+                    'filters' => $filters
                 ]);
 
-                if (!empty($knowledgeResults)) {
-                    $context = array_merge($context, $knowledgeResults);
+                // Usar búsqueda exclusiva de Notion con threshold adecuado
+                $qdrantResults = $this->qdrantService->searchNotionServices($message, $filters, 5, 0.65);
+
+                Log::info('Resultados búsqueda Qdrant (Notion):', [
+                    'count' => count($qdrantResults),
+                    'first_result_preview' => !empty($qdrantResults) ? (is_array($qdrantResults[0]) ? ($qdrantResults[0]['title'] ?? 'Sin título') : substr($qdrantResults[0], 0, 200)) : 'ninguno'
+                ]);
+
+                if (!empty($qdrantResults)) {
+                    // PROCESAR RESULTADOS DE NOTION DESDE QDRANT
+                    $cleanedResults = [];
+                    foreach ($qdrantResults as $result) {
+                        if (is_array($result)) {
+                            // Resultado estructurado de Notion
+                            $contextText = '';
+                            if (!empty($result['title'])) {
+                                $contextText .= $result['title'] . "\n\n";
+                            }
+                            if (!empty($result['content_preview'])) {
+                                $contextText .= $result['content_preview'] . "\n";
+                            }
+                            if (!empty($result['modalidad'])) {
+                                $contextText .= "Modalidad: " . $result['modalidad'] . "\n";
+                            }
+                            if (!empty($result['usuarios'])) {
+                                $contextText .= "Para: " . $result['usuarios'] . "\n";
+                            }
+                            if (!empty($result['dependencia'])) {
+                                $contextText .= "Dependencia: " . $result['dependencia'] . "\n";
+                            }
+                            
+                            $contextText = trim($contextText);
+                            if (!empty($contextText) && strlen($contextText) > 20) {
+                                $cleanedResults[] = $contextText;
+                            }
+                        } else {
+                            // Resultado de texto plano (fallback)
+                            $clean = preg_replace('/📋\s*Información encontrada:\s*/i', '', $result);
+                            $clean = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $clean);
+                            $clean = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '$1: ', $clean);
+                            $clean = preg_replace('/### (.+)/i', '$1', $clean);
+                            $clean = trim($clean);
+                            if (!empty($clean) && strlen($clean) > 20) {
+                                $cleanedResults[] = $clean;
+                            }
+                        }
+                    }
+                    $context = array_merge($context, $cleanedResults);
+                    
+                    Log::info('✅ Contexto procesado desde Qdrant (Notion)', [
+                        'cleaned_results_count' => count($cleanedResults),
+                        'total_context_size' => array_sum(array_map('strlen', $cleanedResults))
+                    ]);
                 } else {
-                    Log::warning('❌ NO SE ENCONTRARON RESULTADOS EN BÚSQUEDA VECTORIAL');
+                    Log::warning('❌ NO SE ENCONTRARON RESULTADOS EN QDRANT (Notion)');
                     return $this->getEmergencyContext($message);
                 }
             } catch (\Exception $e) {
-                Log::error('Error en búsqueda vectorial: ' . $e->getMessage());
+                Log::error('Error en búsqueda Qdrant: ' . $e->getMessage());
                 return $this->getEmergencyContext($message);
             }
 
@@ -275,43 +312,28 @@ class EnhancedChatController extends Controller
 
 
     /**
-     * MÉTODO NUEVO: Contexto de emergencia cuando todo falla
+     * MÉTODO NUEVO: Contexto de emergencia cuando todo falla - SOLO NOTION
      */
     private function getEmergencyContext(string $message): array
     {
-        Log::warning('🚨 USANDO CONTEXTO DE EMERGENCIA');
+        Log::warning('🚨 NO SE ENCONTRÓ INFORMACIÓN ESPECÍFICA EN NOTION');
 
         return [
-            "Información de contacto general de la Universidad Autónoma de Nayarit:
+            "No pude encontrar información específica sobre tu consulta en mi base de conocimientos de Notion.
 
-    Teléfono principal: 311-211-8800
-    Sitio web: https://www.uan.edu.mx
-    Dirección: Ciudad de la Cultura 'Amado Nervo', Tepic, Nayarit
-
-    Para soporte técnico y sistemas:
-    - DGS (Dirección General de Sistemas): Ext. 8640
-    - Soporte técnico: sistemas@uan.edu.mx
-
-    Para trámites académicos:
-    - SA (Servicios Académicos): Ext. 8803
-    - serviciosacademicos@uan.edu.mx"
+Para obtener información actualizada, te recomiendo revisar directamente los servicios disponibles en el sistema de gestión institucional."
         ];
     }
 
     /**
-     * MÉTODO NUEVO: Contexto genérico de ayuda
+     * MÉTODO NUEVO: Contexto genérico de ayuda - SOLO NOTION
      */
     private function getGenericHelpContext(): array
     {
         return [
-            "La Universidad Autónoma de Nayarit ofrece diversos servicios para estudiantes y personal académico. Para obtener información específica sobre trámites, servicios o procedimientos, puedes contactar directamente a:
+            "Estoy configurado para proporcionarte información específica de los servicios registrados en el sistema de gestión institucional.
 
-    • Información general: 311-211-8800
-    • Servicios Académicos: Ext. 8803
-    • Soporte de Sistemas: Ext. 8640
-    • Biblioteca: Ext. 8837
-
-    También puedes visitar el sitio web oficial: https://www.uan.edu.mx"
+Si no encuentro información específica sobre tu consulta, es posible que el servicio no esté registrado en el sistema o necesites contactar directamente con el departamento correspondiente."
         ];
     }
 
@@ -337,34 +359,7 @@ class EnhancedChatController extends Controller
         return array_values($limited);
     }
 
-    /**
-     * Búsqueda por patrones específicos UAN
-     */
-    private function searchByPatterns(string $message, string $userType): array
-    {
-        $messageLower = strtolower($message);
-        $results = [];
-
-        // Patrones específicos de la UAN
-        $patterns = [
-            'inscripción|admision|inscribir' => 'tramites',
-            'carrera|licenciatura|programa|estudiar' => 'oferta_educativa',
-            'biblioteca|libros|acervo' => 'servicios',
-            'sistema|plataforma|correo|password' => 'sistemas',
-            'laboratorio|clinica|enfermeria' => 'servicios',
-            'titulacion|titulo|egreso' => 'tramites',
-            'maestria|doctorado|posgrado' => 'oferta_educativa'
-        ];
-
-        foreach ($patterns as $pattern => $category) {
-            if (preg_match("/\b($pattern)\b/i", $messageLower)) {
-                $categoryResults = $this->knowledgeService->getContentByCategory($category, $userType);
-                $results = array_merge($results, $categoryResults->take(2)->pluck('content')->toArray());
-            }
-        }
-
-        return array_unique($results);
-    }
+    // Eliminado: searchByPatterns - ahora usamos solo Qdrant con contenido Notion
 
     /**
      * Combinar resultados de contexto
@@ -581,22 +576,11 @@ class EnhancedChatController extends Controller
         return $this->getTemplateResponse($message, $queryAnalysis['query_type'], $userType);
     }
 
-    /**
-     * Obtener contexto específico adicional
-     */
+    // Eliminado: getSpecificContext - ahora usamos solo Qdrant con contenido Notion
     private function getSpecificContext(string $message, string $queryType): array
     {
-        $specificQueries = [
-            'tramite_especifico' => $this->knowledgeService->getContentByCategory('tramites', 'student'),
-            'informacion_carrera' => $this->knowledgeService->getContentByCategory('oferta_educativa', 'public'),
-            'soporte_tecnico' => $this->knowledgeService->getContentByDepartment('DGS', 'student'),
-            'servicios' => $this->knowledgeService->getContentByCategory('servicios', 'student')
-        ];
-
-        if (isset($specificQueries[$queryType])) {
-            return $specificQueries[$queryType]->take(3)->pluck('content')->toArray();
-        }
-
+        // Ya no usamos búsquedas específicas por categoría en MySQL
+        // Todo el contexto viene de Qdrant con contenido Notion
         return [];
     }
 
@@ -605,23 +589,9 @@ class EnhancedChatController extends Controller
      */
     private function getTemplateResponse(string $message, string $queryType, string $userType): array
     {
-        $templates = [
-            'tramite_especifico' => [
-                'response' => "📋 **INFORMACIÓN DE TRÁMITES UAN**\n\nPara obtener información específica sobre el trámite que necesitas, te recomiendo contactar directamente a:\n\n🏛️ **SA (Secretaría Académica)**\n📞 Teléfono: 311-211-8803 ext. 8530\n📧 Email: academica@uan.edu.mx\n📍 Ubicación: Edificio PiiDA\n⏰ Horario: Lunes a Viernes de 8:00 a 20:00 hrs\n\n✅ **Te pueden ayudar con:**\n• Procesos de inscripción\n• Trámites de titulación\n• Certificados y constancias\n• Revalidación de estudios\n• Control escolar\n\n🚀 **Siguiente paso:** Contacta directamente para obtener información actualizada y específica para tu situación.",
-                'confidence' => 0.8
-            ],
-            'informacion_carrera' => [
-                'response' => "🎓 **OFERTA EDUCATIVA UAN**\n\nLa Universidad Autónoma de Nayarit ofrece más de 40 programas de licenciatura en diversas áreas del conocimiento:\n\n📚 **Áreas disponibles:**\n• Ciencias Básicas e Ingenierías\n• Ciencias Sociales y Humanidades\n• Ciencias de la Salud\n• Ciencias Biológico Agropecuarias y Pesqueras\n\n📞 **Para información detallada:**\n• Teléfono general: 311-211-8800\n• Portal web: https://www.uan.edu.mx/es/oferta\n• SA: 311-211-8800 ext. 8803\n\n🎯 **Te recomendamos:** Visitar nuestras instalaciones y conocer de cerca los programas que te interesan.",
-                'confidence' => 0.85
-            ],
-            'soporte_tecnico' => [
-                'response' => "💻 **SOPORTE TÉCNICO UAN**\n\nPara resolver problemas técnicos de las plataformas institucionales:\n\n🏛️ **Dirección General de Sistemas (DGS)**\n📞 Teléfono: 311-211-8800 ext. 8640\n📧 Email: dgs@uan.edu.mx\n📍 Ubicación: Edificio de Finanzas, 2do. piso\n⏰ Horario: Lunes a Viernes de 8:00 a 20:00 hrs\n\n🔧 **Servicios disponibles:**\n• Problemas de acceso a plataformas\n• Desarrollo de sistemas\n\n💡 **Recomendación:** Contacta directamente para asistencia especializada.",
-                'confidence' => 0.9
-            ]
-        ];
-
-        $template = $templates[$queryType] ?? [
-            'response' => "👋 **¡Hola! Soy Ociel, tu asistente de la UAN**\n\nEstoy aquí para ayudarte con información sobre nuestra universidad.\n\n📞 **Contacto general:** 311-211-8800\n🌐 **Portal oficial:** https://www.uan.edu.mx\n📍 **Ubicación:** Ciudad de la Cultura \"Amado Nervo\", Tepic, Nayarit\n\n🎓 **Puedo ayudarte con:**\n• Información sobre carreras\n• Trámites y servicios\n• Contactos de departamentos\n• Servicios universitarios\n\n¿En qué más puedo asistirte?",
+        // RESPUESTAS BASADAS ÚNICAMENTE EN INFORMACIÓN DE NOTION
+        $template = [
+            'response' => "👋 Hola, soy Ociel.\n\nEstoy configurado para proporcionarte información específica de los servicios registrados en nuestro sistema de gestión institucional.\n\n🔍 **Puedo ayudarte con:**\n• Información sobre servicios específicos registrados\n• Procedimientos detallados de trámites\n• Contactos oficiales de departamentos\n\nSi no encuentro información específica sobre tu consulta, es porque el servicio no está registrado en mi base de conocimientos.\n\n¿Sobre qué servicio específico necesitas información?",
             'confidence' => 0.7
         ];
 
@@ -634,10 +604,16 @@ class EnhancedChatController extends Controller
     private function getFallbackResponse(string $message, array $context, array $queryAnalysis): array
     {
         if (!empty($context)) {
-            $response = "📋 **Información disponible:**\n\n" .
-                       substr($context[0], 0, 400) . "...\n\n" .
-                       "📞 **Para más información:** 311-211-8800\n" .
-                       "🌐 **Portal oficial:** https://www.uan.edu.mx";
+            // Generar respuesta conversacional sin formato markdown
+            $contextText = strip_tags($context[0]);
+            $contextText = preg_replace('/📋\s*Información encontrada:\s*/i', '', $contextText);
+            $contextText = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $contextText);
+            $contextText = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $contextText);
+            $contextText = preg_replace('/### (.+)/i', '', $contextText);
+            
+            $response = "¡Hola! 🐯 Encontré información sobre tu consulta. " . 
+                       trim(substr($contextText, 0, 250)) . 
+                       "... ¿Te gustaría que profundice en algún aspecto específico? Estoy aquí para apoyarte 🐾";
 
             return [
                 'response' => $response,
@@ -760,8 +736,8 @@ class EnhancedChatController extends Controller
         // Uso de listas o bullets
         if (preg_match('/[•·]|^\s*[-*]\s/m', $response)) $score += 0.2;
 
-        // Información de contacto bien formateada
-        if (preg_match('/📞.*311-211-8800/', $response)) $score += 0.2;
+        // Información de contacto bien formateada (si viene de Notion)
+        if (preg_match('/📞.*\d{3}-\d{3}-\d{4}/', $response)) $score += 0.2;
 
         // Llamada a la acción clara
         if (preg_match('/🚀|💡|✅.*paso/i', $response)) $score += 0.2;
@@ -827,32 +803,90 @@ class EnhancedChatController extends Controller
      */
     private function getSmartContactInfo(?string $department, array $queryAnalysis, array $context): array
     {
-        // Información específica por tipo de consulta
-        $contactMapping = [
-            'tramite_especifico' => [
-                'primary' => ['name' => 'SA', 'phone' => '311-211-8800 ext. 8803', 'email' => 'academica@uan.edu.mx'],
-                'secondary' => ['name' => 'Información Académica', 'phone' => '311-211-8800']
-            ],
-            'soporte_tecnico' => [
-                'primary' => ['name' => 'DGS - Sistemas', 'phone' => '311-211-8800 ext. 8540', 'email' => 'sistemas@uan.edu.mx'],
-                'secondary' => ['name' => 'Ayuda técnica plaformas institucionales', 'phone' => '311-211-8800 ext. 8640']
-            ],
-            'informacion_carrera' => [
-                'primary' => ['name' => 'Información General', 'phone' => '311-211-8800'],
-                'secondary' => ['name' => 'SA', 'phone' => '311-211-8800 ext. 8803']
-            ]
+        // EXTRAER INFORMACIÓN DE CONTACTO COMPLETA DE NOTION
+        foreach ($context as $content) {
+            // Buscar la sección de contacto en el contenido markdown
+            $contactInfo = $this->extractContactFromMarkdown($content);
+            if (!empty($contactInfo)) {
+                return [
+                    'primary' => $contactInfo,
+                    'source' => 'notion_content'
+                ];
+            }
+        }
+
+        // Si no hay información específica de contacto en Notion, no mostrar contactos genéricos
+        return [
+            'note' => 'Información de contacto específica no disponible en el registro del servicio'
         ];
+    }
 
-        $contacts = $contactMapping[$queryAnalysis['query_type']] ?? [
-            'primary' => ['name' => 'Universidad Autónoma de Nayarit', 'phone' => '311-211-8800'],
-            'secondary' => ['name' => 'Portal Web', 'url' => 'https://www.uan.edu.mx']
-        ];
+    /**
+     * Extraer información de contacto completa de servicios de Notion
+     */
+    private function extractContactFromMarkdown(string $content): array
+    {
+        $contactInfo = [];
+        
+        // Primero extraer metadatos del header del servicio
+        $serviceInfo = $this->extractServiceMetadata($content);
+        
+        // Buscar la sección ### Contacto
+        if (preg_match('/###\s*Contacto\s*\n(.*?)(?=\n###|\n\n###|$)/is', $content, $contactSection)) {
+            $contactText = $contactSection[1];
+            
+            // Extraer teléfono
+            if (preg_match('/\*\*Teléfono:\*\*\s*(.+?)(?:\n|$)/i', $contactText, $phoneMatch)) {
+                $contactInfo['phone'] = trim($phoneMatch[1]);
+            }
+            
+            // Extraer correo
+            if (preg_match('/\*\*Correo:\*\*\s*(.+?)(?:\n|$)/i', $contactText, $emailMatch)) {
+                $contactInfo['email'] = trim($emailMatch[1]);
+            }
+            
+            // Extraer ubicación
+            if (preg_match('/\*\*Ubicación:\*\*\s*(.+?)(?:\n|$)/i', $contactText, $locationMatch)) {
+                $contactInfo['location'] = trim($locationMatch[1]);
+            }
+            
+            // Extraer horarios
+            if (preg_match('/\*\*Horarios:\*\*\s*(.+?)(?:\n|$)/i', $contactText, $scheduleMatch)) {
+                $contactInfo['schedule'] = trim($scheduleMatch[1]);
+            }
+        }
+        
+        // Si encontramos al menos teléfono o correo, devolver la información
+        if (isset($contactInfo['phone']) || isset($contactInfo['email'])) {
+            return [
+                'name' => 'Contacto para ' . ($serviceInfo['categoria'] ?? 'servicio'),
+                'service_info' => $serviceInfo,
+                'details' => $contactInfo
+            ];
+        }
+        
+        return [];
+    }
 
-        // Agregar información de horarios y ubicación
-        $contacts['hours'] = 'Lunes a Viernes de 8:00 a 20:00 hrs';
-        $contacts['location'] = 'Ciudad de la Cultura "Amado Nervo", Tepic, Nayarit';
-
-        return $contacts;
+    /**
+     * Extraer metadatos del servicio de Notion
+     */
+    private function extractServiceMetadata(string $content): array
+    {
+        $metadata = [];
+        
+        // Extraer líneas de metadatos después del título
+        $lines = explode("\n", $content);
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if (preg_match('/^(Categoria|Costo|Dependencia|Estado|ID_Servicio|Modalidad|Subcategoria|Usuarios):\s*(.+)$/i', $line, $matches)) {
+                $key = strtolower($matches[1]);
+                $value = trim($matches[2]);
+                $metadata[$key] = $value;
+            }
+        }
+        
+        return $metadata;
     }
 
     /**
@@ -930,51 +964,47 @@ class EnhancedChatController extends Controller
         $relatedTopics = [];
         $queryType = $queryAnalysis['query_type'];
 
-        // Temas relacionados por tipo de consulta
-        $topicMapping = [
+        // Temas relacionados basados en servicios de Notion disponibles
+        $serviceTopics = [
             'tramite_especifico' => [
-                'Servicios Escolares',
-                'Control Escolar',
-                'Certificados y Constancias',
-                'Revalidación de Estudios',
-                'Titulación'
+                'Solicitud de Constancias Académicas',
+                'Solicitud de Cuenta de Correo Institucional',
+                'Registro al EXANI III',
+                'Digitalización de Documentos'
             ],
             'informacion_carrera' => [
-                'Plan de Estudios',
-                'Perfil de Egreso',
-                'Campo Laboral',
-                'Requisitos de Admisión',
-                'Intercambio Académico'
+                'Creación de Programas Académicos',
+                'Registro de Programa de Posgrado',
+                'Asesoría para Evaluación de Programas',
+                'Becas SECIHTI'
             ],
             'soporte_tecnico' => [
-                'Correo Institucional',
-                'Plataformas Educativas',
-                'WiFi Universitario',
-                'Mesa de Ayuda',
-                'Manuales de Usuario'
+                'Activación de Correo Institucional',
+                'Solicitud de Microsoft 365',
+                'Solicitud de Licencia Canva Pro',
+                'Orden de Servicio Técnico'
             ],
-            'servicios' => [
-                'Biblioteca',
-                'Laboratorios',
-                'Servicios Médicos',
-                'Actividades Deportivas',
-                'Servicios de Alimentación'
+            'servicios_tecnologicos' => [
+                'Cuenta Microsoft 365 for Educación',
+                'Licencia Autodesk para Educación',
+                'Licencia Affinity Educación',
+                'Correo Electrónico Institucional'
             ]
         ];
 
-        $topics = $topicMapping[$queryType] ?? [
-            'Información General',
-            'Directorio de Contactos',
-            'Horarios de Atención',
-            'Servicios Universitarios'
+        $topics = $serviceTopics[$queryType] ?? [
+            'Servicios Académicos',
+            'Servicios Tecnológicos', 
+            'Servicios Administrativos',
+            'Trámites Institucionales'
         ];
 
-        // Convertir a formato estructurado
+        // Convertir a formato estructurado con consultas específicas
         foreach ($topics as $topic) {
             $relatedTopics[] = [
                 'title' => $topic,
-                'query_suggestion' => "Información sobre {$topic}",
-                'relevance' => 'medium'
+                'query_suggestion' => strtolower($topic),
+                'relevance' => 'high'
             ];
         }
 
@@ -1046,53 +1076,23 @@ class EnhancedChatController extends Controller
     }
 
     /**
-     * Manejo de errores de chat
+     * Manejo de errores de chat simplificado
      */
     private function handleChatError(\Exception $e, string $requestId, string $message, string $userType, float $startTime): JsonResponse
     {
-        $responseTime = round((microtime(true) - $startTime) * 1000);
-
         Log::error('Chat error occurred', [
             'request_id' => $requestId,
             'error' => $e->getMessage(),
             'message' => substr($message, 0, 100),
-            'user_type' => $userType,
-            'response_time' => $responseTime,
-            'stack_trace' => $e->getTraceAsString()
+            'user_type' => $userType
         ]);
 
-        // Respuesta de emergencia robusta
-        $emergencyResponse = "🚨 **Disculpa las molestias**\n\n" .
-                           "Estoy experimentando dificultades técnicas temporales. " .
-                           "Para asistencia inmediata, contacta directamente:\n\n" .
-                           "📞 **Universidad Autónoma de Nayarit**\n" .
-                           "Teléfono: 311-211-8800\n" .
-                           "🌐 Portal: https://www.uan.edu.mx\n\n" .
-                           "🔧 **Soporte Técnico:** sistemas@uan.edu.mx\n\n" .
-                           "Estaré disponible nuevamente en unos momentos.";
+        $emergencyResponse = "Disculpa, estoy teniendo dificultades técnicas. Por favor intenta de nuevo en un momento.";
 
         return response()->json([
             'success' => false,
             'error' => 'Error temporal del sistema',
-            'data' => [
-                'response' => $emergencyResponse,
-                'session_id' => Str::uuid(),
-                'request_id' => $requestId,
-                'confidence' => 0.3,
-                'model_used' => 'emergency_response',
-                'response_time' => $responseTime,
-                'requires_human_follow_up' => true,
-                'escalation_priority' => 'high',
-                'contact_info' => [
-                    'primary' => ['name' => 'UAN General', 'phone' => '311-211-8800'],
-                    'technical' => ['name' => 'Soporte Técnico', 'email' => 'sistemas@uan.edu.mx']
-                ]
-            ],
-            'metadata' => [
-                'error_type' => 'system_error',
-                'retry_suggested' => true,
-                'timestamp' => now()->toISOString()
-            ]
+            'response' => $emergencyResponse
         ], 500);
     }
 
@@ -1102,7 +1102,7 @@ class EnhancedChatController extends Controller
 
     private function containsContactInfo(string $text): bool
     {
-        return preg_match('/\b311-211-8800\b|\b\w+@\w+\.edu\.mx\b|ext\.\s*\d+/i', $text);
+        return preg_match('/\b\d{3}-\d{3}-\d{4}\b|\b\w+@\w+\.edu\.mx\b|ext\.\s*\d+/i', $text);
     }
 
     private function containsActionableInfo(string $text): bool
@@ -1152,15 +1152,14 @@ class EnhancedChatController extends Controller
 
     private function containsCorrectInstitutionalInfo(string $response): bool
     {
-        $correctInfo = [
-            '311-211-8800' => true,
+        // Verificar que la información institucional venga de Notion, no hardcodeada
+        $notionInfo = [
             'Universidad Autónoma de Nayarit' => true,
             'UAN' => true,
-            'Tepic, Nayarit' => true,
             'uan.edu.mx' => true
         ];
 
-        foreach ($correctInfo as $info => $expected) {
+        foreach ($notionInfo as $info => $expected) {
             if (stripos($response, $info) !== false) {
                 return true;
             }
@@ -1340,7 +1339,7 @@ class EnhancedChatController extends Controller
             'components' => [
                 'database' => $this->checkDatabaseHealth(),
                 'ollama' => $this->ollamaService->isHealthy(),
-                'knowledge_base' => $this->knowledgeService->isHealthy(),
+                'qdrant' => $this->qdrantService->isHealthy(),
                 'ghost_cms' => $this->ghostService->healthCheck()['status'] === 'ok',
                 'cache' => $this->checkCacheHealth()
             ],
@@ -1460,10 +1459,8 @@ class EnhancedChatController extends Controller
             ],
             'system_health' => [
                 'ollama_available' => $this->ollamaService->isHealthy(),
-                'knowledge_base_healthy' => $this->knowledgeService->isHealthy(),
-                'semantic_search_enabled' => method_exists($this->knowledgeService, 'isSemanticSearchAvailable')
-                    ? $this->knowledgeService->isSemanticSearchAvailable()
-                    : false
+                'qdrant_healthy' => $this->qdrantService->isHealthy(),
+                'vector_search_enabled' => true
             ]
         ];
     }
