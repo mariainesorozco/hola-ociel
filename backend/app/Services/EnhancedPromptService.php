@@ -222,28 +222,28 @@ FORMATO:
 
             'soporte_tecnico' => "💻 MODO CONVERSACIONAL - SERVICIOS TECNOLÓGICOS:
 
-❌ FORMATO PROHIBIDO:
-- NO usar markdown visible: ### Descripción, **Campo:**
-- NO mostrar estructura con headers
-- NO usar listas con emojis y campos separados como:
-  📋 Información encontrada:
-  ### Descripción
-  **Usuarios:** ...
-  **Modalidad:** ...
-  ### Contacto
+SEGUIR PROMPT MAESTRO OPTIMIZADO:
+- Aplicar personalidad Ociel Senpai 🐯
+- SOLO usar información exacta del contexto Qdrant
+- JAMÁS inventar pasos, contactos o procedimientos
+- Respuesta cálida y conversacional
 
-✅ FORMATO REQUERIDO - CONVERSACIÓN NATURAL:
-Respuesta completamente conversacional que integre:
-- Saludo natural
-- Explicación del servicio en párrafos fluidos
-- Información de usuarios, modalidad, dependencia mencionada naturalmente
-- Contacto integrado al final solo si está en contexto
-- Pregunta de seguimiento
+✅ ESTRUCTURA REQUERIDA:
+1. Saludo empático Ociel (🐯)
+2. Información del servicio SOLO del contexto
+3. Datos específicos si están disponibles
+4. Cierre con oferta de apoyo (🐾)
+
+❌ PROHIBIDO ABSOLUTO:
+- Formato markdown visible (###, **)
+- Inventar información de contacto
+- Agregar procedimientos no documentados
+- Usar datos genéricos UAN
 
 **EJEMPLO CORRECTO:**
-'¡Hola! Te ayudo con el servicio de correo electrónico institucional. Este servicio permite a los estudiantes activar automáticamente su cuenta de email universitario. Lo maneja la Dirección de Sistemas y funciona completamente en línea, así que puedes hacerlo desde cualquier lugar. ¿Tienes algún problema específico con la activación?'
+'¡Claro que sí! 🐯 Te ayudo con el servicio que encontré en mi base de datos. [Información exacta del contexto]. ¿Hay algo específico sobre este servicio que necesites saber? Estoy aquí para apoyarte 🐾'
 
-❌ NUNCA uses formato estructurado visible",
+Si NO hay contexto específico: Usar respuesta estándar de 'no información específica'",
 
             'queja_problema' => "🛡️ ESPECIALIZACIÓN EN ATENCIÓN DE PROBLEMAS:
 
@@ -276,33 +276,36 @@ FORMATO:
         ];
 
         return $instructions[$queryType] ??
-            "🤖 MODO CONVERSACIONAL - CONSULTA GENERAL:
+            "🐯 MODO OCIEL SENPAI - CONSULTA GENERAL:
 
-❌ FORMATO ABSOLUTAMENTE PROHIBIDO:
-- NO mostrar: 📋 Información encontrada:
-- NO usar: ### Descripción, **Campo:**, **Modalidad:**
-- NO estructurar con headers visibles
-- NO usar listas de campos con emojis
+APLICAR PROMPT MAESTRO OPTIMIZADO COMPLETO:
 
-✅ FORMATO OBLIGATORIO - RESPUESTA NATURAL:
-- Conversación fluida como asistente humano
-- Información integrada en párrafos naturales  
-- Datos mencionados conversacionalmente
-- Sin formato markdown visible
+📋 CHECKLIST DE VALIDACIÓN:
+- [ ] ¿Toda la información viene del contexto Qdrant?
+- [ ] ¿El tono es cálido y de compañero senpai?
+- [ ] ¿Evité formato markdown visible?
+- [ ] ¿Si falta info, lo admití honestamente?
+- [ ] ¿Incluí emoji 🐯 o 🐾 apropiadamente?
 
-**EJEMPLOS CORRECTOS:**
+🔄 FLUJO DE DECISIÓN:
+¿Existe información en Qdrant con score > 0.7?
+├─ SÍ → Extraer campos exactos → Respuesta cálida y precisa
+└─ NO → Respuesta honesta → Sugerir contacto directo UAN
 
-**SI HAY INFORMACIÓN COMPLETA:**
-'¡Hola! Te puedo ayudar con el servicio de activación de correo. Este servicio permite a los estudiantes de la universidad activar automáticamente su cuenta de email institucional. Lo maneja la Dirección de Sistemas y funciona completamente en línea, por lo que puedes hacerlo desde cualquier dispositivo. ¿Necesitas ayuda con algún paso en particular?'
+✅ FORMATO ESTÁNDAR OCIEL:
+🐯 [Saludo empático y personalizado - 1 línea]
+[Información del contexto - máx 3 líneas]
+[Datos específicos si existen]
+¿Necesitas algo más? Estoy aquí para apoyarte 🐾
 
-**SI FALTA INFORMACIÓN:**
-'¡Hola! Encontré información sobre ese servicio, pero no tengo todos los detalles específicos en este momento. Te recomiendo consultar directamente con la universidad para obtener información completa y actualizada. ¿Hay algo específico que te gustaría saber?'
+❌ SI NO HAY INFORMACIÓN ESPECÍFICA:
+🐯 ¡Hola! Te ayudo con mucho gusto.
+Sobre [tema], no tengo información específica en mi base de datos.
+Te sugiero contactar: 311-211-8800 o www.uan.edu.mx
+¿Hay algo más en lo que pueda apoyarte? 🐾
 
-❌ REGLAS CRÍTICAS: 
-- NUNCA muestres estructura markdown
-- NO inventes procedimientos detallados
-- RESPUESTA CORTA Y REAL mejor que larga e inventada
-- Conversación natural, no formato técnico";
+**PRINCIPIO FUNDAMENTAL:**
+MEJOR respuesta honesta y cálida que información inventada.";
     }
 
     /**
@@ -447,34 +450,46 @@ ACCIÓN: Proporciona información general confiable y deriva a contactos apropia
     }
 
     /**
-     * Limpiar formato de respuesta para conversación natural
+     * Limpiar formato aplicando las reglas del prompt maestro optimizado
      */
     private function cleanResponseFormat(string $response): string
     {
-        // 1. ELIMINAR COMPLETAMENTE formato markdown estructurado
-        $response = preg_replace('/📋\s*Información encontrada:\s*/i', '', $response);
-        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $response); // Quitar headers
-        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $response); // Quitar campos en negritas
+        // APLICAR LIMPIEZA SEGÚN PROMPT MAESTRO
         
-        // 2. Eliminar secciones estructuradas específicas
+        // 1. ELIMINAR HEADERS MARKDOWN ESTRUCTURADOS
+        $response = preg_replace('/📋\s*Información encontrada:\s*/i', '', $response);
+        $response = preg_replace('/^#{1,6}\s*(.+)$/m', '$1', $response);
         $response = preg_replace('/### Descripción\s*/i', '', $response);
         $response = preg_replace('/### Contacto\s*/i', '', $response);
+        $response = preg_replace('/### Procedimiento\s*/i', '', $response);
+        $response = preg_replace('/### Requisitos\s*/i', '', $response);
+        
+        // 2. ELIMINAR CAMPOS ESTRUCTURADOS EN NEGRITAS
+        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $response);
         $response = preg_replace('/\*\*Modalidad:\*\*/i', '', $response);
         $response = preg_replace('/\*\*Usuarios:\*\*/i', '', $response);
         $response = preg_replace('/\*\*Dependencia:\*\*/i', '', $response);
         $response = preg_replace('/\*\*Estado:\*\*/i', '', $response);
         $response = preg_replace('/\*\*Costo:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Categoria:\*\*/i', '', $response);
+        $response = preg_replace('/\*\*Subcategoria:\*\*/i', '', $response);
 
-        // 3. Convertir listas estructuradas a texto fluido
-        $response = preg_replace('/^\* /m', '', $response);
-        $response = preg_replace('/^- /m', '', $response);
+        // 3. CONVERTIR LISTAS A FORMATO NATURAL OCIEL
+        $response = preg_replace('/^\* /m', '- ', $response);
+        $response = preg_replace('/^• /m', '- ', $response);
 
-        // 4. Limpiar múltiples saltos de línea
+        // 4. PRESERVAR EMOJIS OCIEL PERO QUITAR ESTRUCTURA
+        $response = preg_replace('/\*\*(.+?)\*\*/', '$1', $response);
+
+        // 5. NORMALIZAR ESPACIADO SEGÚN FORMATO OCIEL
         $response = preg_replace('/\n{3,}/', "\n\n", $response);
-
-        // 5. Eliminar líneas vacías resultantes
         $response = preg_replace('/^\s*$/m', '', $response);
         $response = preg_replace('/\n{2,}/', "\n\n", $response);
+
+        // 6. ASEGURAR QUE TERMINE CON CIERRE EMPÁTICO OCIEL SI NO LO TIENE
+        if (!preg_match('/🐾|🐯/', $response)) {
+            $response .= "\n\n¿Necesitas algo más? Estoy aquí para apoyarte 🐾";
+        }
 
         return trim($response);
     }
