@@ -10,11 +10,16 @@ class EnhancedPromptService
 {
     private $ollamaService;
     private $knowledgeService;
+    private $geminiService;
 
-    public function __construct(OllamaService $ollamaService, KnowledgeBaseService $knowledgeService)
-    {
+    public function __construct(
+        OllamaService $ollamaService, 
+        KnowledgeBaseService $knowledgeService,
+        GeminiService $geminiService
+    ) {
         $this->ollamaService = $ollamaService;
         $this->knowledgeService = $knowledgeService;
+        $this->geminiService = $geminiService;
     }
 
     /**
@@ -37,7 +42,7 @@ class EnhancedPromptService
         $fullPrompt = $this->buildFullPrompt($systemPrompt, $userMessage, $context);
 
         // 4. Generar respuesta con configuración optimizada usando método Ociel
-        $response = $this->ollamaService->generateOcielResponse($userMessage, $context, $userType, $department);
+        $response = $this->generateWithFallback($userMessage, $context, $userType, $department);
 
         // 5. Validar y mejorar respuesta
         if ($response['success']) {
@@ -51,6 +56,93 @@ class EnhancedPromptService
         }
 
         return $response;
+    }
+
+    /**
+     * Generar respuesta con sistema de fallback Ollama -> Gemini
+     */
+    private function generateWithFallback(string $userMessage, array $context, string $userType, ?string $department): array
+    {
+        Log::info('Iniciando generación con fallback', [
+            'primary_service' => 'Ollama (solar:10.7b)',
+            'fallback_service' => 'Gemini',
+            'user_type' => $userType
+        ]);
+
+        // 1. Intentar con Ollama (solar:10.7b) primero
+        if ($this->ollamaService->isHealthy()) {
+            $ollamaResponse = $this->ollamaService->generateOcielResponse($userMessage, $context, $userType, $department);
+            
+            if ($ollamaResponse['success'] && !empty($ollamaResponse['response'])) {
+                Log::info('Respuesta exitosa con Ollama solar:10.7b', [
+                    'confidence' => $ollamaResponse['confidence'] ?? 0,
+                    'response_time' => $ollamaResponse['response_time'] ?? 0
+                ]);
+                $ollamaResponse['service_used'] = 'ollama_solar';
+                return $ollamaResponse;
+            }
+            
+            Log::warning('Ollama falló o respuesta vacía, intentando con Gemini', [
+                'ollama_error' => $ollamaResponse['error'] ?? 'unknown'
+            ]);
+        } else {
+            Log::warning('Ollama no disponible, usando Gemini directamente');
+        }
+
+        // 2. Fallback a Gemini si Ollama falla
+        if ($this->geminiService->isEnabled() && $this->geminiService->isHealthy()) {
+            $geminiResponse = $this->geminiService->generateOcielResponse($userMessage, $context, $userType, $department);
+            
+            if ($geminiResponse['success']) {
+                Log::info('Respuesta exitosa con Gemini fallback', [
+                    'response_time' => $geminiResponse['response_time'] ?? 0
+                ]);
+                $geminiResponse['service_used'] = 'gemini_fallback';
+                $geminiResponse['confidence'] = ($geminiResponse['confidence'] ?? 0.7) * 0.9; // Ligeramente menor por ser fallback
+                return $geminiResponse;
+            }
+            
+            Log::error('Gemini también falló', [
+                'gemini_error' => $geminiResponse['error'] ?? 'unknown'
+            ]);
+        }
+
+        // 3. Respuesta de emergencia si ambos servicios fallan
+        Log::error('Todos los servicios de IA fallaron, usando respuesta de emergencia');
+        
+        return [
+            'success' => true,
+            'response' => $this->getEmergencyResponse($userMessage, $context),
+            'confidence' => 0.5,
+            'service_used' => 'emergency_fallback',
+            'model' => 'emergency_template',
+            'response_time' => 0
+        ];
+    }
+
+    /**
+     * Respuesta de emergencia cuando todos los servicios fallan
+     */
+    private function getEmergencyResponse(string $userMessage, array $context): string
+    {
+        if (!empty($context)) {
+            // Si hay contexto, usarlo directamente
+            $contextText = strip_tags($context[0]);
+            $contextText = substr($contextText, 0, 300);
+            
+            return "¡Hola! 🐯 Encontré información sobre tu consulta en mi base de datos: " . 
+                   $contextText . "... " .
+                   "Para información más detallada, te recomiendo contactar directamente con la institución. " .
+                   "¿Hay algo específico que te gustaría saber? Estoy aquí para apoyarte 🐾";
+        }
+        
+        // Respuesta genérica sin contexto
+        return "¡Hola! Soy Ociel, tu compañero senpai digital 🐯\n\n" .
+               "En este momento estoy experimentando dificultades técnicas temporales, pero estoy aquí para ayudarte. " .
+               "Para consultas específicas, te recomiendo contactar directamente:\n\n" .
+               "📞 Información general UAN: 311-211-8800\n" .
+               "🌐 Portal oficial: www.uan.edu.mx\n\n" .
+               "¿Hay algo en lo que pueda intentar ayudarte? Estoy aquí para apoyarte 🐾";
     }
 
     /**

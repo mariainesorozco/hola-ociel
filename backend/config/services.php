@@ -31,10 +31,20 @@ return [
     ],
     'ollama' => [
         'url' => env('OLLAMA_URL', 'http://localhost:11434'),
-        'primary_model' => env('OLLAMA_PRIMARY_MODEL', 'mistral:7b'),
+        'primary_model' => env('OLLAMA_PRIMARY_MODEL', 'solar:10.7b'),
         'secondary_model' => env('OLLAMA_SECONDARY_MODEL', 'llama3.2:3b'),
         'embedding_model' => env('OLLAMA_EMBEDDING_MODEL', 'nomic-embed-text'),
         'timeout' => env('OLLAMA_TIMEOUT', 60),
+    ],
+    
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-1.5-flash'),
+        'endpoint' => env('GEMINI_ENDPOINT', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout' => env('GEMINI_TIMEOUT', 30),
+        'max_tokens' => env('GEMINI_MAX_TOKENS', 1000),
+        'temperature' => env('GEMINI_TEMPERATURE', 0.2),
+        'enabled' => env('GEMINI_ENABLED', false),
     ],
         'ghost' => [
         'url' => env('GHOST_URL', 'https://blog.uan.edu.mx'),

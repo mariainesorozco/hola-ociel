@@ -8,6 +8,7 @@ use App\Services\KnowledgeBaseService;
 use App\Services\EnhancedPromptService;
 use App\Services\GhostIntegrationService;
 use App\Services\EnhancedQdrantVectorService;
+use App\Services\GeminiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
@@ -23,19 +24,22 @@ class EnhancedChatController extends Controller
     private $promptService;
     private $ghostService;
     private $qdrantService;
+    private $geminiService;
 
     public function __construct(
         OllamaService $ollamaService,
         KnowledgeBaseService $knowledgeService,
         EnhancedPromptService $promptService,
         GhostIntegrationService $ghostService,
-        EnhancedQdrantVectorService $qdrantService
+        EnhancedQdrantVectorService $qdrantService,
+        GeminiService $geminiService
     ) {
         $this->ollamaService = $ollamaService;
         $this->knowledgeService = $knowledgeService;
         $this->promptService = $promptService;
         $this->ghostService = $ghostService;
         $this->qdrantService = $qdrantService;
+        $this->geminiService = $geminiService;
     }
 
     /**
@@ -1339,6 +1343,7 @@ Si no encuentro información específica sobre tu consulta, es posible que el se
             'components' => [
                 'database' => $this->checkDatabaseHealth(),
                 'ollama' => $this->ollamaService->isHealthy(),
+                'gemini' => $this->geminiService->isHealthy(),
                 'qdrant' => $this->qdrantService->isHealthy(),
                 'ghost_cms' => $this->ghostService->healthCheck()['status'] === 'ok',
                 'cache' => $this->checkCacheHealth()
