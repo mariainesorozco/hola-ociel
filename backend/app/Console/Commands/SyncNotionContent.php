@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\NotionIntegrationService;
+use App\Services\SimpleNotionService;
 use Illuminate\Support\Facades\Log;
 
 class SyncNotionContent extends Command
@@ -23,7 +23,7 @@ class SyncNotionContent extends Command
 
     private $notionService;
 
-    public function __construct(NotionIntegrationService $notionService)
+    public function __construct(SimpleNotionService $notionService)
     {
         parent::__construct();
         $this->notionService = $notionService;
@@ -128,7 +128,7 @@ class SyncNotionContent extends Command
             $progressBar->start();
 
             if (!$options['dry_run']) {
-                $results = $this->notionService->syncDatabase($databaseId, $options);
+                $results = $this->notionService->syncDatabase($databaseId, $options['category']);
             } else {
                 // Simulación - solo obtener páginas sin procesar
                 $this->info('Simulando sincronización...');

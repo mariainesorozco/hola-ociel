@@ -9,16 +9,13 @@ use Illuminate\Support\Facades\Log;
 class EnhancedPromptService
 {
     private $ollamaService;
-    private $knowledgeService;
     private $geminiService;
 
     public function __construct(
         OllamaService $ollamaService, 
-        KnowledgeBaseService $knowledgeService,
         GeminiService $geminiService
     ) {
         $this->ollamaService = $ollamaService;
-        $this->knowledgeService = $knowledgeService;
         $this->geminiService = $geminiService;
     }
 
@@ -29,7 +26,8 @@ class EnhancedPromptService
         string $userMessage,
         string $userType = 'public',
         ?string $department = null,
-        array $context = []
+        array $context = [],
+        array $conversationHistory = []
     ): array {
 
         // 1. Clasificar tipo de consulta
@@ -42,7 +40,7 @@ class EnhancedPromptService
         $fullPrompt = $this->buildFullPrompt($systemPrompt, $userMessage, $context);
 
         // 4. Generar respuesta con configuración optimizada usando método Ociel
-        $response = $this->generateWithFallback($userMessage, $context, $userType, $department);
+        $response = $this->generateWithFallback($userMessage, $context, $userType, $department, $conversationHistory);
 
         // 5. Validar y mejorar respuesta
         if ($response['success']) {
@@ -61,7 +59,7 @@ class EnhancedPromptService
     /**
      * Generar respuesta con sistema de fallback Ollama -> Gemini
      */
-    private function generateWithFallback(string $userMessage, array $context, string $userType, ?string $department): array
+    private function generateWithFallback(string $userMessage, array $context, string $userType, ?string $department, array $conversationHistory = []): array
     {
         Log::info('Iniciando generación con fallback', [
             'primary_service' => 'Ollama (solar:10.7b)',
@@ -71,7 +69,7 @@ class EnhancedPromptService
 
         // 1. Intentar con Ollama (solar:10.7b) primero
         if ($this->ollamaService->isHealthy()) {
-            $ollamaResponse = $this->ollamaService->generateOcielResponse($userMessage, $context, $userType, $department);
+            $ollamaResponse = $this->ollamaService->generateOcielResponse($userMessage, $context, $userType, $department, $conversationHistory);
             
             if ($ollamaResponse['success'] && !empty($ollamaResponse['response'])) {
                 Log::info('Respuesta exitosa con Ollama solar:10.7b', [

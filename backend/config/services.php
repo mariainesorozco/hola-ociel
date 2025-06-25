@@ -63,8 +63,8 @@ return [
     ],
     'notion' => [
         'api_key' => env('NOTION_API_KEY'),
-        'timeout' => env('NOTION_TIMEOUT', 30),
         'version' => env('NOTION_VERSION', '2022-06-28'),
+        'timeout' => env('NOTION_TIMEOUT', 30),
         'sync_enabled' => env('NOTION_SYNC_ENABLED', true),
         'default_category' => env('NOTION_DEFAULT_CATEGORY', 'notion_docs'),
         'default_department' => env('NOTION_DEFAULT_DEPARTMENT', 'GENERAL'),
@@ -73,6 +73,12 @@ return [
         'rate_limit' => [
             'requests_per_second' => env('NOTION_RATE_LIMIT', 3),
             'burst_limit' => env('NOTION_BURST_LIMIT', 10),
+        ],
+        'databases' => [
+            'finanzas' => env('NOTION_FINANZAS_DB_ID'),
+            'academica' => env('NOTION_ACADEMICA_DB_ID'),
+            'recursos_humanos' => env('NOTION_RECURSOS_HUMANOS_DB_ID'),
+            'servicios_tecnologicos' => env('NOTION_SERVICIOS_TECNOLOGICOS_DB_ID'),
         ],
     ],
     'piida' => [

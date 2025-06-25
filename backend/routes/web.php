@@ -19,13 +19,12 @@ Route::get('/', function () {
 
 // Ruta para el widget de ¡Hola Ociel! - CORREGIDA
 Route::get('/ociel', function () {
-    // El archivo está en public/index.php, no en public/ociel/index.html
-    return response()->file(public_path('index.php'));
+    return response()->file(public_path('ociel/index.php'));
 });
 
 // Ruta alternativa para servir el widget directamente
 Route::get('/widget', function () {
-    return response()->file(public_path('index.php'));
+    return response()->file(public_path('ociel/index.php'));
 });
 
 // Health check para verificar que Laravel funciona

@@ -4,8 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\EnhancedQdrantVectorService;
-use App\Services\KnowledgeBaseService;
-use App\Services\NotionIntegrationService;
+use App\Services\SimpleNotionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -18,17 +17,14 @@ class CleanupVectorDbCommand extends Command
     protected $description = 'Limpiar base de datos vectorial para mantener solo contenido de Notion';
 
     private $vectorService;
-    private $knowledgeService;
     private $notionService;
 
     public function __construct(
         EnhancedQdrantVectorService $vectorService,
-        KnowledgeBaseService $knowledgeService,
-        NotionIntegrationService $notionService
+        SimpleNotionService $notionService
     ) {
         parent::__construct();
         $this->vectorService = $vectorService;
-        $this->knowledgeService = $knowledgeService;
         $this->notionService = $notionService;
     }
 

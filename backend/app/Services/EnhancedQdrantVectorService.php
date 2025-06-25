@@ -647,7 +647,7 @@ class EnhancedQdrantVectorService
         return [];
     }
 
-    private function vectorExists(int $id): bool
+    private function vectorExists($id): bool
     {
         try {
             $response = $this->client->get("/collections/{$this->collectionName}/points/{$id}");
@@ -1238,4 +1238,396 @@ class EnhancedQdrantVectorService
             return "Parcialmente relevante - Servicio disponible en {$categoria}";
         }
     }
+
+    /**
+ * Indexar un único punto en Qdrant
+    *
+    * @param array $point Estructura del punto con 'id', 'content' y 'metadata'
+    * @return bool
+    */
+    public function indexSinglePoint(array $point): bool
+    {
+        try {
+            // Validar estructura del punto
+            if (!isset($point['id']) || !isset($point['content'])) {
+                Log::error('Punto inválido: falta id o content');
+                return false;
+            }
+
+            // Generar embedding del contenido
+            $embedding = $this->generateEmbeddingWithRetry($point['content']);
+
+            if (empty($embedding)) {
+                Log::error('No se pudo generar embedding para el contenido');
+                return false;
+            }
+
+            // Preparar punto para Qdrant
+            $qdrantPoint = [
+                'id' => (int) $point['id'],
+                'vector' => $embedding,
+                'payload' => array_merge(
+                    [
+                        'content' => $point['content'],
+                        'indexed_at' => now()->toIso8601String(),
+                    ],
+                    $point['metadata'] ?? []
+                )
+            ];
+
+            // Enviar a Qdrant
+            $response = $this->client->put(
+                "/collections/{$this->collectionName}/points",
+                [
+                    'json' => [
+                        'points' => [$qdrantPoint]
+                    ]
+                ]
+            );
+
+            $result = json_decode($response->getBody(), true);
+
+            if ($result['status'] === 'ok') {
+                Log::info("Punto indexado exitosamente", [
+                    'id' => $point['id'],
+                    'title' => $point['metadata']['title'] ?? 'Sin título'
+                ]);
+                return true;
+            }
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('Error indexando punto individual: ' . $e->getMessage(), [
+                'point_id' => $point['id'] ?? 'unknown'
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Indexar múltiples puntos en lote (método alternativo mejorado)
+     *
+     * @param array $points Array de puntos
+     * @param int $batchSize Tamaño del lote
+     * @return array Resultados de indexación
+     */
+    public function indexMultiplePoints(array $points, int $batchSize = 100): array
+    {
+        $results = [
+            'indexed' => 0,
+            'failed' => 0,
+            'errors' => []
+        ];
+
+        // Procesar en lotes
+        $batches = array_chunk($points, $batchSize);
+
+        foreach ($batches as $batchIndex => $batch) {
+            try {
+                $qdrantPoints = [];
+
+                foreach ($batch as $point) {
+                    // Validar punto
+                    if (!isset($point['id']) || !isset($point['content'])) {
+                        $results['failed']++;
+                        $results['errors'][] = "Punto inválido en lote {$batchIndex}";
+                        continue;
+                    }
+
+                    // Generar embedding
+                    $embedding = $this->generateEmbeddingWithRetry($point['content']);
+
+                    if (empty($embedding)) {
+                        $results['failed']++;
+                        $results['errors'][] = "No se pudo generar embedding para punto {$point['id']}";
+                        continue;
+                    }
+
+                    $qdrantPoints[] = [
+                        'id' => (int) $point['id'],
+                        'vector' => $embedding,
+                        'payload' => array_merge(
+                            [
+                                'content' => $point['content'],
+                                'indexed_at' => now()->toIso8601String(),
+                            ],
+                            $point['metadata'] ?? []
+                        )
+                    ];
+                }
+
+                if (!empty($qdrantPoints)) {
+                    // Enviar lote a Qdrant
+                    $response = $this->client->put(
+                        "/collections/{$this->collectionName}/points",
+                        [
+                            'json' => [
+                                'points' => $qdrantPoints
+                            ]
+                        ]
+                    );
+
+                    $result = json_decode($response->getBody(), true);
+
+                    if ($result['status'] === 'ok') {
+                        $results['indexed'] += count($qdrantPoints);
+                    } else {
+                        $results['failed'] += count($qdrantPoints);
+                        $results['errors'][] = "Error en lote {$batchIndex}: " . ($result['error'] ?? 'Unknown error');
+                    }
+                }
+
+            } catch (\Exception $e) {
+                $results['failed'] += count($batch);
+                $results['errors'][] = "Error procesando lote {$batchIndex}: " . $e->getMessage();
+            }
+        }
+
+        Log::info("Indexación múltiple completada", $results);
+
+        return $results;
+    }
+
+    /**
+     * Actualizar punto existente en Qdrant
+     *
+     * @param int $pointId ID del punto a actualizar
+     * @param array $updates Array con 'content' y/o 'metadata' para actualizar
+     * @return bool
+     */
+    public function updatePoint(int $pointId, array $updates): bool
+    {
+        try {
+            $updateData = [];
+
+            // Si se actualiza el contenido, regenerar embedding
+            if (isset($updates['content'])) {
+                $embedding = $this->generateEmbeddingWithRetry($updates['content']);
+
+                if (empty($embedding)) {
+                    Log::error('No se pudo generar embedding para actualización');
+                    return false;
+                }
+
+                // Actualizar vector
+                $vectorResponse = $this->client->put(
+                    "/collections/{$this->collectionName}/points/vectors",
+                    [
+                        'json' => [
+                            'points' => [
+                                [
+                                    'id' => $pointId,
+                                    'vector' => $embedding
+                                ]
+                            ]
+                        ]
+                    ]
+                );
+
+                $vectorResult = json_decode($vectorResponse->getBody(), true);
+                if ($vectorResult['status'] !== 'ok') {
+                    return false;
+                }
+            }
+
+            // Actualizar payload si hay metadatos
+            if (isset($updates['metadata']) || isset($updates['content'])) {
+                $payload = $updates['metadata'] ?? [];
+
+                if (isset($updates['content'])) {
+                    $payload['content'] = $updates['content'];
+                }
+
+                $payload['updated_at'] = now()->toIso8601String();
+
+                $payloadResponse = $this->client->post(
+                    "/collections/{$this->collectionName}/points/payload",
+                    [
+                        'json' => [
+                            'payload' => $payload,
+                            'points' => [$pointId]
+                        ]
+                    ]
+                );
+
+                $payloadResult = json_decode($payloadResponse->getBody(), true);
+                return $payloadResult['status'] === 'ok';
+            }
+
+            return true;
+
+        } catch (\Exception $e) {
+            Log::error('Error actualizando punto: ' . $e->getMessage(), [
+                'point_id' => $pointId
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Eliminar punto de Qdrant
+     *
+     * @param int|array $pointIds ID o array de IDs a eliminar
+     * @return bool
+     */
+    public function deletePoints($pointIds): bool
+    {
+        try {
+            $ids = is_array($pointIds) ? $pointIds : [$pointIds];
+
+            $response = $this->client->post(
+                "/collections/{$this->collectionName}/points/delete",
+                [
+                    'json' => [
+                        'points' => array_map('intval', $ids)
+                    ]
+                ]
+            );
+
+            $result = json_decode($response->getBody(), true);
+
+            if ($result['status'] === 'ok') {
+                Log::info('Puntos eliminados exitosamente', ['count' => count($ids)]);
+                return true;
+            }
+
+            return false;
+
+        } catch (\Exception $e) {
+            Log::error('Error eliminando puntos: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Indexar contenido de Notion directamente en Qdrant
+     */
+    public function indexNotionContent(array $notionData): array
+    {
+        $results = ['indexed' => 0, 'errors' => 0, 'skipped' => 0];
+        $points = [];
+
+        foreach ($notionData as $item) {
+            try {
+                // Verificar si ya existe
+                if ($this->vectorExists($item['id'])) {
+                    Log::info("Vector ya existe para Notion ID: {$item['id']}, actualizando...");
+                }
+
+                // Crear texto enriquecido para embedding
+                $enrichedText = $this->createNotionEnrichedText($item);
+
+                // Generar embedding
+                $embedding = $this->generateEmbeddingWithRetry($enrichedText);
+
+                if (empty($embedding)) {
+                    Log::warning("No se pudo generar embedding para Notion ID: {$item['id']}");
+                    $results['errors']++;
+                    continue;
+                }
+
+                // Preparar punto para Qdrant
+                $points[] = [
+                    'id' => $item['id'],
+                    'vector' => $embedding,
+                    'payload' => $this->createNotionPayload($item)
+                ];
+
+                $results['indexed']++;
+
+            } catch (\Exception $e) {
+                Log::error("Error procesando item Notion {$item['id']}: " . $e->getMessage());
+                $results['errors']++;
+            }
+        }
+
+        // Insertar puntos en Qdrant
+        if (!empty($points)) {
+            $batchResult = $this->processBatch($points);
+            $results['indexed'] = $batchResult['success'];
+            $results['errors'] += $batchResult['errors'];
+        }
+
+        Log::info("Indexación Notion completada", $results);
+        return $results;
+    }
+
+    /**
+     * Crear texto enriquecido para embedding de Notion
+     */
+    private function createNotionEnrichedText(array $item): string
+    {
+        $metadata = $item['metadata'] ?? [];
+        $content = $item['content'] ?? '';
+
+        $enrichedParts = [];
+
+        // Título
+        if (!empty($metadata['title'])) {
+            $enrichedParts[] = "Título: " . $metadata['title'];
+        }
+
+        // Categoría y subcategoría
+        if (!empty($metadata['category'])) {
+            $enrichedParts[] = "Categoría: " . $metadata['category'];
+        }
+        if (!empty($metadata['subcategory'])) {
+            $enrichedParts[] = "Subcategoría: " . $metadata['subcategory'];
+        }
+
+        // Departamento
+        if (!empty($metadata['department'])) {
+            $enrichedParts[] = "Departamento: " . $metadata['department'];
+        }
+
+        // Modalidad y usuarios
+        if (!empty($metadata['modality'])) {
+            $enrichedParts[] = "Modalidad: " . $metadata['modality'];
+        }
+        if (!empty($metadata['users'])) {
+            $enrichedParts[] = "Usuarios: " . $metadata['users'];
+        }
+
+        // Costo
+        if (!empty($metadata['cost'])) {
+            $enrichedParts[] = "Costo: " . $metadata['cost'];
+        }
+
+        // Contenido principal
+        $enrichedParts[] = "Contenido: " . $content;
+
+        return implode(" | ", $enrichedParts);
+    }
+
+    /**
+     * Crear payload para Qdrant desde datos de Notion
+     */
+    private function createNotionPayload(array $item): array
+    {
+        $metadata = $item['metadata'] ?? [];
+
+        return [
+            'title' => $metadata['title'] ?? '',
+            'content_preview' => substr($item['content'] ?? '', 0, 300),
+            'category' => $metadata['category'] ?? '',
+            'subcategory' => $metadata['subcategory'] ?? '',
+            'department' => $metadata['department'] ?? '',
+            'service_id' => $metadata['service_id'] ?? '',
+            'cost' => $metadata['cost'] ?? '',
+            'modality' => $metadata['modality'] ?? '',
+            'status' => $metadata['status'] ?? 'Activo',
+            'users' => $metadata['users'] ?? '',
+            'dependency' => $metadata['dependency'] ?? '',
+            'source_type' => 'notion',
+            'source_url' => $metadata['source_url'] ?? '',
+            'notion_id' => $metadata['notion_id'] ?? '',
+            'is_active' => true,
+            'indexed_at' => now()->toISOString(),
+            'created_time' => $metadata['created_time'] ?? null,
+            'last_edited_time' => $metadata['last_edited_time'] ?? null
+        ];
+    }
+
+
 }

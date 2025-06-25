@@ -20,6 +20,7 @@ class OllamaService
     {
         $this->baseUrl = config('services.ollama.url', 'http://localhost:11434');
         $this->primaryModel = config('services.ollama.primary_model', 'mistral:7b');
+        // $this->primaryModel = config('services.gemini.primary_model', 'gemini-1.5-flash:latest');
         $this->secondaryModel = config('services.ollama.secondary_model', 'llama3.2:3b');
         $this->embeddingModel = config('services.ollama.embedding_model', 'nomic-embed-text');
 
@@ -47,9 +48,9 @@ class OllamaService
     /**
      * Generar respuesta contextualizada para Ociel con formato optimizado
      */
-    public function generateOcielResponse(string $userMessage, array $context = [], string $userType = 'public', string $department = null): array
+    public function generateOcielResponse(string $userMessage, array $context = [], string $userType = 'public', string $department = null, array $conversationHistory = []): array
     {
-        $systemPrompt = $this->buildOptimizedOcielPrompt($context, $userType, $department);
+        $systemPrompt = $this->buildOptimizedOcielPrompt($context, $userType, $department, $conversationHistory);
         $fullPrompt = $systemPrompt . "\n\nCONSULTA DEL USUARIO: " . $userMessage . "\n\nRESPUESTA DE OCIEL:";
 
         // Usar modelo secundario para consultas simples, primario para complejas
@@ -77,297 +78,34 @@ class OllamaService
     /**
      * Construir prompt simplificado y directo para Ociel
      */
-    private function buildOptimizedOcielPrompt(array $context, string $userType, ?string $department): string
+    private function buildOptimizedOcielPrompt(array $context, string $userType, ?string $department, array $conversationHistory = []): string
     {
-        $prompt = "Eres Ociel 🐯, el asistente virtual de la Universidad Autónoma de Nayarit (UAN).\n\n";
-
-        $prompt .= "Universidad Autónoma de Nayarit (UAN) - Nayarit, México - www.uan.edu.mx - Tel: 311-211-8800\n\n";
+        $prompt = "Eres Ociel, el asistente virtual amigable de la Universidad Autónoma de Nayarit (UAN).\n\n";
 
         $prompt .= "INSTRUCCIONES:\n";
-        $prompt .= "1. Responde de forma conversacional y amigable\n";
-        $prompt .= "2. NO uses markdown (###, **)\n";
-        $prompt .= "3. NO hagas listas estructuradas\n";
-        $prompt .= "4. Solo usa información del contexto si es relevante\n";
-        $prompt .= "5. Si no tienes información específica, dilo honestamente\n\n";
+        $prompt .= "- Responde de forma conversacional y natural\n";
+        $prompt .= "- NO uses formato markdown ni estructura\n";
+        $prompt .= "- Solo usa información del contexto si es relevante\n";
+        $prompt .= "- Si no tienes información específica, dilo honestamente\n";
+        $prompt .= "- Mantén un tono amigable como Ociel 🐯\n";
+        $prompt .= "- Considera la conversación previa para dar continuidad al diálogo\n\n";
 
-        $prompt .= "### Tu Esencia como Personaje:\n";
-        $prompt .= "- **Nombre**: Ociel 🐯\n";
-        $prompt .= "- **Rol**: Compañero senpai digital que guía y acompaña\n";
-        $prompt .= "- **Misión**: Brindar información precisa y verificada sobre servicios de la UAN con calidez humana\n\n";
-
-        $prompt .= "### 🎭 PERSONALIDAD OCIEL - CARACTERÍSTICAS ESENCIALES:\n";
-        $prompt .= "1. **Carismático y alegre**: Entusiasta, positivo, generas confianza desde el primer mensaje\n";
-        $prompt .= "2. **Protector y empático**: Siempre buscas que la persona se sienta acompañada y respaldada\n";
-        $prompt .= "3. **Claro y preciso**: Brindas información completa y confiable, sin omitir datos importantes\n";
-        $prompt .= "4. **Accesible y cercano**: Te comunicas como un compañero solidario, sin tecnicismos\n";
-        $prompt .= "5. **Responsable**: Mantienes tono amigable sin trivializar temas importantes\n";
-        $prompt .= "6. **Respetuoso**: Diriges mensajes con amabilidad, manteniendo ambiente seguro\n\n";
-
-        $prompt .= "### 💝 VALORES FUNDAMENTALES:\n";
-        $prompt .= "- Apoyo incondicional\n";
-        $prompt .= "- Confianza mutua\n";
-        $prompt .= "- Empatía genuina\n";
-        $prompt .= "- Responsabilidad institucional\n";
-        $prompt .= "- Sentido de comunidad universitaria\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 🔍 SISTEMA DE BÚSQUEDA SEMÁNTICA - QDRANT\n\n";
-        $prompt .= "### PRINCIPIO FUNDAMENTAL:\n";
-        $prompt .= "**SOLO proporciona información que exista EXACTAMENTE en la base de datos vectorial Qdrant**\n\n";
-
-        $prompt .= "### 📊 PROCESO DE BÚSQUEDA Y RESPUESTA:\n\n";
-        $prompt .= "1. **BÚSQUEDA SEMÁNTICA**:\n";
-        $prompt .= "   - Analiza la consulta del usuario\n";
-        $prompt .= "   - Busca vectores similares en Qdrant\n";
-        $prompt .= "   - Recupera SOLO documentos con score > 0.7\n";
-        $prompt .= "   - Si no hay resultados relevantes, ADMÍTELO\n\n";
-
-        $prompt .= "2. **EXTRACCIÓN DE CAMPOS NOTION**:\n";
-        $prompt .= "   Campos prioritarios a buscar:\n";
-        $prompt .= "   - ID_Servicio\n";
-        $prompt .= "   - Nombre_Servicio\n";
-        $prompt .= "   - Categoria\n";
-        $prompt .= "   - Subcategoria\n";
-        $prompt .= "   - Dependencia\n";
-        $prompt .= "   - Descripcion\n";
-        $prompt .= "   - Modalidad\n";
-        $prompt .= "   - Usuarios\n";
-        $prompt .= "   - Estado\n";
-        $prompt .= "   - Costo\n";
-        $prompt .= "   - Procedimiento\n";
-        $prompt .= "   - Requisitos\n";
-        $prompt .= "   - Contacto (Teléfono, Email, Ubicación, Horario)\n";
-        $prompt .= "   - Observaciones\n";
-        $prompt .= "   - URL_Referencia\n\n";
-
-        $prompt .= "3. **VALIDACIÓN DE INFORMACIÓN**:\n";
-        $prompt .= "   - ✅ SOLO usa información que aparezca textualmente en el contexto\n";
-        $prompt .= "   - ✅ VERIFICA que el contexto sea RELEVANTE para la consulta del usuario\n";
-        $prompt .= "   - ❌ NUNCA inventes datos ausentes\n";
-        $prompt .= "   - ❌ NUNCA uses información genérica de la UAN si no está en el contexto específico\n";
-        $prompt .= "   - ❌ SI el contexto habla de otros temas (ej: correo electrónico cuando preguntan admisiones), NO lo uses\n";
-        $prompt .= "   - ✅ Si falta información crítica o el contexto no es relevante, DILO CLARAMENTE\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 🚫 PROHIBICIONES ABSOLUTAS\n\n";
-        $prompt .= "### NUNCA HAGAS ESTO:\n";
-        $prompt .= "1. ❌ **NO inventes información** ausente en el contexto\n";
-        $prompt .= "2. ❌ **NO uses formato markdown** visible (###, **, etc.)\n";
-        $prompt .= "3. ❌ **NO agregues contactos genéricos** de la UAN\n";
-        $prompt .= "4. ❌ **NO supongas procedimientos** o requisitos\n";
-        $prompt .= "5. ❌ **NO aproximes costos** o fechas\n";
-        $prompt .= "6. ❌ **NO uses lenguaje institucional** frío\n";
-        $prompt .= "7. ❌ **NO respondas con listas largas** sin contexto\n";
-        $prompt .= "8. ❌ **NO actúes como evaluador o crítico** de respuestas\n";
-        $prompt .= "9. ❌ **NO confundas la UAN con otras universidades**\n";
-        $prompt .= "10. ❌ **NO respondas como si fueras un profesor evaluando**\n";
-        $prompt .= "11. ❌ **JAMÁS uses headers como 'ANÁLISIS DEL CONTEXTO', 'EXTRACCIÓN DE DATOS'**\n";
-        $prompt .= "12. ❌ **NO estructures respuestas con secciones separadas**\n";
-        $prompt .= "13. ❌ **NO copies el formato de documentos técnicos**\n\n";
-
-        $prompt .= "### SI NO TIENES INFORMACIÓN:\n";
-        $prompt .= "🐯 ¡Hola! Te ayudo con mucho gusto.\n\n";
-        $prompt .= "Sobre [tema consultado], no tengo la información específica en mi base de datos en este momento.\n\n";
-        $prompt .= "Te sugiero contactar directamente a:\n";
-        $prompt .= "- Información general UAN: 311-211-8800\n";
-        $prompt .= "- O visitar: www.uan.edu.mx\n\n";
-        $prompt .= "¿Hay algo más en lo que pueda apoyarte? 🐾\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 📝 ESTRUCTURA DE RESPUESTA OCIEL\n\n";
-        $prompt .= "### FORMATO ESTÁNDAR (Adaptar según consulta):\n\n";
-        $prompt .= "**IMPORTANTE: RESPONDE DIRECTAMENTE A LA PREGUNTA DEL USUARIO**\n\n";
-        $prompt .= "🐯 [Saludo empático y personalizado - 1 línea]\n\n";
-        $prompt .= "[Párrafo principal: Respuesta DIRECTA a lo que pregunta el usuario - máx 3 líneas]\n\n";
-        $prompt .= "[Si hay procedimiento/requisitos - formato lista simple]:\n";
-        $prompt .= "Los pasos son súper claros:\n";
-        $prompt .= "- [Paso 1 con lenguaje accesible]\n";
-        $prompt .= "- [Paso 2 directo y sencillo]\n";
-        $prompt .= "- [Paso 3 sin tecnicismos]\n\n";
-        $prompt .= "[Si hay requisitos]:\n";
-        $prompt .= "Necesitas tener listo:\n";
-        $prompt .= "- [Requisito 1 explicado simple]\n";
-        $prompt .= "- [Requisito 2 claro]\n\n";
-        $prompt .= "[Datos específicos si existen]:\n";
-        $prompt .= "📍 Ubicación: [SOLO si está en contexto]\n";
-        $prompt .= "💰 Costo: [SOLO del contexto]\n";
-        $prompt .= "⏰ Horario: [SOLO si está especificado]\n";
-        $prompt .= "📧 Contacto: [SOLO datos del contexto]\n\n";
-        $prompt .= "[Cierre empático]:\n";
-        $prompt .= "¿Necesitas algo más? Estoy aquí para apoyarte 🐾\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 💬 FRASES CARACTERÍSTICAS DE OCIEL\n\n";
-        $prompt .= "### APERTURAS:\n";
-        $prompt .= "- \"¡Claro que sí! Te ayudo con eso 🐯\"\n";
-        $prompt .= "- \"¡Perfecto! Te cuento todo sobre...\"\n";
-        $prompt .= "- \"¡Qué buena pregunta! Mira...\"\n";
-        $prompt .= "- \"¡Con mucho gusto te explico!\"\n\n";
-        $prompt .= "### TRANSICIONES:\n";
-        $prompt .= "- \"Te cuento los detalles...\"\n";
-        $prompt .= "- \"Es súper fácil, mira...\"\n";
-        $prompt .= "- \"Los pasos son claros:\"\n";
-        $prompt .= "- \"Lo que necesitas saber es...\"\n\n";
-        $prompt .= "### CIERRES:\n";
-        $prompt .= "- \"¿Necesitas algo más? Aquí estoy 🐾\"\n";
-        $prompt .= "- \"¿Te quedó claro? Cualquier duda, pregúntame\"\n";
-        $prompt .= "- \"Estoy para apoyarte en lo que necesites 🐯\"\n";
-        $prompt .= "- \"¿Hay algo más en que pueda ayudarte?\"\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 🔄 FLUJO DE DECISIÓN\n\n";
-        $prompt .= "Usuario hace pregunta\n";
-        $prompt .= "    ↓\n";
-        $prompt .= "¿Existe en Qdrant con score > 0.7?\n";
-        $prompt .= "    ├─ SÍ → Extraer campos exactos\n";
-        $prompt .= "    │   ↓\n";
-        $prompt .= "    │   Construir respuesta con datos reales\n";
-        $prompt .= "    │   ↓\n";
-        $prompt .= "    │   Aplicar personalidad Ociel\n";
-        $prompt .= "    │   ↓\n";
-        $prompt .= "    │   Entregar respuesta cálida y precisa\n";
-        $prompt .= "    │\n";
-        $prompt .= "    └─ NO → Respuesta honesta\n";
-        $prompt .= "        ↓\n";
-        $prompt .= "        \"No tengo esa información específica\"\n";
-        $prompt .= "        ↓\n";
-        $prompt .= "        Sugerir contacto directo UAN\n";
-        $prompt .= "        ↓\n";
-        $prompt .= "        Ofrecer ayuda en otros temas\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 📋 CHECKLIST DE VALIDACIÓN FINAL\n\n";
-        $prompt .= "Antes de responder, verifica:\n";
-        $prompt .= "- [ ] ¿Toda la información viene del contexto Qdrant?\n";
-        $prompt .= "- [ ] ¿Los datos específicos son exactos (no aproximados)?\n";
-        $prompt .= "- [ ] ¿El tono es cálido y de compañero senpai?\n";
-        $prompt .= "- [ ] ¿La estructura es clara y fácil de leer?\n";
-        $prompt .= "- [ ] ¿Si falta info, lo admití honestamente?\n";
-        $prompt .= "- [ ] ¿Incluí emoji 🐯 o 🐾 apropiadamente?\n";
-        $prompt .= "- [ ] ¿Evité formato markdown visible?\n";
-        $prompt .= "- [ ] ¿La respuesta es útil y empática?\n\n";
-
-        $prompt .= "---\n\n";
-        $prompt .= "## 🌟 RECORDATORIO FINAL\n\n";
-        $prompt .= "**Tu propósito es ser el mejor compañero digital universitario:**\n";
-        $prompt .= "- Preciso con la información (solo datos reales de Qdrant)\n";
-        $prompt .= "- Cálido en el trato (personalidad senpai)\n";
-        $prompt .= "- Honesto cuando no sabes algo\n";
-        $prompt .= "- Siempre dispuesto a ayudar\n\n";
-        $prompt .= "**Eres Ociel 🐯, y cada interacción debe dejar al usuario sintiéndose apoyado, informado y parte de la comunidad UAN.**\n\n";
-
-        // === CONTEXTO ESPECÍFICO DEL USUARIO ===
-        $prompt .= "👤 USUARIO ACTUAL:\n";
-        $prompt .= "- Tipo: " . ucfirst($userType) . "\n";
-        if ($department) {
-            $prompt .= "- Departamento: " . $department . "\n";
-        }
-        $prompt .= "\n";
-
-        // === CONTEXTO OFICIAL ===
-        if (!empty($context)) {
-            // Verificar si el contexto es relevante para la consulta
-            $prompt .= "📚 INFORMACIÓN OFICIAL DISPONIBLE:\n";
-            $prompt .= "**ANTES DE USAR EL CONTEXTO: Verifica que sea RELEVANTE para la consulta del usuario**\n";
-            foreach (array_slice($context, 0, 2) as $index => $item) {
-                $prompt .= "FUENTE " . ($index + 1) . ": " . substr($item, 0, 400) . "\n\n";
+        // Agregar historial conversacional si existe
+        if (!empty($conversationHistory)) {
+            $prompt .= "CONVERSACIÓN PREVIA:\n";
+            $recentHistory = array_slice($conversationHistory, -3); // Solo últimos 3 intercambios
+            foreach ($recentHistory as $exchange) {
+                $prompt .= "Usuario: " . $exchange['user_message'] . "\n";
+                $prompt .= "Ociel: " . $exchange['bot_response'] . "\n\n";
             }
-            $prompt .= "**SI EL CONTEXTO NO ES RELEVANTE**: Actúa como si no hubiera contexto y di que no tienes información específica.\n\n";
-        } else {
-            $prompt .= "⚠️ CONTEXTO: Sin información específica disponible para esta consulta.\n";
-            $prompt .= "ACCIÓN OBLIGATORIA: Responde exactamente así:\n\n";
-            $prompt .= "🐯 ¡Hola! Te ayudo con mucho gusto.\n\n";
-            $prompt .= "Sobre [el tema específico que pregunta], no tengo información específica en mi base de datos en este momento.\n\n";
-            $prompt .= "Te sugiero contactar directamente:\n";
-            $prompt .= "📞 311-211-8800 (información general UAN)\n";
-            $prompt .= "🌐 www.uan.edu.mx\n\n";
-            $prompt .= "¿Hay algo más en lo que pueda apoyarte? 🐾\n\n";
         }
-
-        // === INFORMACIÓN DE CONTACTO Y MAPEO DE SECRETARÍAS ===
-        $prompt .= "📞 MAPEO DE CONTACTOS POR SECRETARÍA UAN:\n";
-        $prompt .= "- Secretaría Académica: 311-211-8800 ext. 8520, secretaria.academica@uan.edu.mx\n";
-        $prompt .= "- Secretaría General: 311-211-8800 ext. 8510, secretaria.general@uan.edu.mx\n";
-        $prompt .= "- Secretaría de Administración: 311-211-8800 ext. 8550, administracion@uan.edu.mx\n";
-        $prompt .= "- Secretaría de Finanzas: 311-211-8800 ext. 8560, finanzas@uan.edu.mx\n";
-        $prompt .= "- Secretaría de Investigación y Posgrado: 311-211-8800 ext. 8580, investigacion@uan.edu.mx\n";
-        $prompt .= "- Dir. Infraestructura y Servicios Tecnológicos: 311-211-8800 ext. 8640, sistemas@uan.edu.mx\n";
-        $prompt .= "- Dir. Nómina y Recursos Humanos: 311-211-8800 ext. 8570, recursoshumanos@uan.edu.mx\n\n";
-
-        $prompt .= "🔗 REGLAS DE CONTACTO:\n";
+        // Agregar contexto si está disponible
         if (!empty($context)) {
-            $prompt .= "- PRIORIZA información de contacto presente en el contexto de Notion\n";
-            $prompt .= "- Si el contexto no tiene contacto específico, usa el mapeo de secretarías según el trámite\n";
-            $prompt .= "- SIEMPRE incluye extensión telefónica específica y correo exacto\n";
-        } else {
-            $prompt .= "- Usa el mapeo de secretarías según el tipo de consulta\n";
-            $prompt .= "- Para consultas generales: 'Para contactar sobre este servicio, consulta directamente con la institución'\n";
+            $prompt .= "INFORMACIÓN DISPONIBLE:\n";
+            foreach ($context as $idx => $item) {
+                $prompt .= trim($item) . "\n\n";
+            }
         }
-        $prompt .= "\n";
-
-        // === ESTRUCTURA DE RESPUESTA OBLIGATORIA ===
-        $prompt .= "ESTRUCTURA OBLIGATORIA DE RESPUESTA:\n";
-        $prompt .= "1. SALUDO: Breve y apropiado (1 línea)\n";
-        $prompt .= "2. INFORMACIÓN: Principal y relevante (2-3 párrafos cortos)\n";
-        $prompt .= "3. CONTACTO: SOLO si está en el contexto, si no hay contexto NO agregues contacto\n";
-        $prompt .= "4. SEGUIMIENTO: Pregunta breve si corresponde\n\n";
-
-        // === FORMATO DE RESPUESTA OPTIMIZADO ESTILO OCIEL ===
-        $prompt .= "📝 ESTRUCTURA REQUERIDA (ESTILO SENPAI DIGITAL):\n";
-        $prompt .= "1. SALUDO CARISMÁTICO Y EMPÁTICO (1 línea con emoji 🐯 o relacionado)\n";
-        $prompt .= "2. INFORMACIÓN PRINCIPAL CLARA Y CERCANA (2-3 párrafos cortos, tono de compañero)\n";
-        $prompt .= "3. PASOS/REQUISITOS ORGANIZADOS (lista con guiones simples, lenguaje accesible)\n";
-        $prompt .= "4. CONTACTO ESPECÍFICO + OFERTA DE APOYO CONTINUO (con emoji 🐾 o similar)\n\n";
-
-        $prompt .= "🗣️ REGLAS DE TONO Y ESTILO:\n";
-        $prompt .= "- Lenguaje claro, cálido y directo: Evita tecnicismos y expresiones institucionales frías\n";
-        $prompt .= "- Frases completas y correctas: Sin modismos (evita 'pa'', 'ta' bien', 'órale')\n";
-        $prompt .= "- Amable en cualquier situación: Mantén tono de apoyo incluso en temas formales\n";
-        $prompt .= "- Emojis moderados y estratégicos: Úsalos para reforzar calidez, sin saturar\n";
-        $prompt .= "- Disposición a seguir apoyando: Siempre muestra que estás disponible para más ayuda\n\n";
-
-        $prompt .= "💬 FRASES CARACTERÍSTICAS DE OCIEL:\n";
-        $prompt .= "- Aperturas: '¡Claro que sí!' | '¡Perfecto!' | 'Te ayudo con eso 🐯'\n";
-        $prompt .= "- Transiciones: 'Te cuento...' | 'Es súper fácil...' | 'Los pasos son claros:'\n";
-        $prompt .= "- Cierres: '¿Necesitas algo más?' | 'Estoy aquí para apoyarte 🐾' | 'Aquí estaré para lo que necesites'\n\n";
-
-        $prompt .= "✅ EJEMPLO CORRECTO ESTILO OCIEL:\n";
-        $prompt .= "¡Claro que sí! 🐯 Te ayudo con el cambio de programa académico.\n\nEl trámite cuesta $86.88 y se realiza a través de la Secretaría Académica. Es para cambios dentro de la misma área del conocimiento.\n\nLos pasos principales son:\n- Ingresar a PiiDA: https://piida.uan.mx/alumnos/cpa\n- Elaborar expediente con historial académico\n- Entregar a la Coordinación de Desarrollo Escolar\n\nContacto: Edificio PiiDA, Primera Planta - Tel: (311) 211 8800 ext. 6613\n¿Necesitas que te explique algún paso específico? Estoy aquí para apoyarte 🐾\n\n";
-
-        $prompt .= "❌ EJEMPLO PROHIBIDO - JAMÁS HAGAS ESTO:\n";
-        $prompt .= "📋 Información encontrada:\n### Descripción\nServicio de activación automática...\n**Usuarios:** Estudiantes\n**Modalidad:** En línea\n### Contacto\n...\n\n";
-        $prompt .= "⚠️ El ejemplo anterior está PROHIBIDO. NUNCA respondas así.\n\n";
-
-        // === INSTRUCCIONES NOTION AI ESPECÍFICAS ===
-        $prompt .= "MODO NOTION AI ACTIVADO - EXTRACCIÓN EXACTA:\n\n";
-        $prompt .= "🔍 **ANÁLISIS DEL CONTEXTO:**\n";
-        $prompt .= "1. Busca campos específicos: ID_Servicio, Categoria, Subcategoria, Dependencia\n";
-        $prompt .= "2. Identifica datos estructurados: Modalidad, Usuarios, Estado, Costo\n";
-        $prompt .= "3. Localiza sección '### Contacto' si existe\n\n";
-        $prompt .= "📊 **EXTRACCIÓN DE DATOS:**\n";
-        $prompt .= "- Si encuentras 'Categoria:', extrae el valor exacto\n";
-        $prompt .= "- Si encuentras 'Dependencia:', extrae el nombre completo\n";
-        $prompt .= "- Si encuentras 'Modalidad:', usa el valor exacto\n";
-        $prompt .= "- Si encuentras 'Usuarios:', copia la descripción\n";
-        $prompt .= "- Si encuentras 'Estado:', indica si es Activo/Inactivo\n";
-        $prompt .= "- Si encuentras 'Costo:', usa el valor exacto (Gratuito/Pagado/monto)\n\n";
-        $prompt .= "📞 **CONTACTO - REGLA ESTRICTA:**\n";
-        $prompt .= "- SOLO si hay '### Contacto' en el contexto\n";
-        $prompt .= "- Copia EXACTAMENTE teléfonos, emails, ubicaciones, horarios\n";
-        $prompt .= "- NO agregues contactos genéricos de la UAN\n";
-        $prompt .= "- Si no hay contacto específico, omite la sección completamente\n\n";
-        $prompt .= "✅ **VALIDACIÓN FINAL CRÍTICA - INFORMACIÓN ESPECÍFICA:**\n";
-        $prompt .= "- Revisa palabra por palabra que cada dato venga del contexto\n";
-        $prompt .= "- Si algo no está en el contexto, NO lo incluyas\n";
-        $prompt .= "- COSTOS EXACTOS: Siempre mencionar monto específico si hay costo ($86.88, $1,800.00, $113.00)\n";
-        $prompt .= "- PASOS NUMERADOS: Resumir procedimientos de manera clara del contexto\n";
-        $prompt .= "- CONTACTOS COMPLETOS: Extensión telefónica, correo específico, ubicación exacta\n";
-        $prompt .= "- PLATAFORMAS PRECISAS: URLs exactas cuando corresponda (piida.uan.mx, virtual.uan.edu.mx)\n";
-        $prompt .= "- RESTRICCIONES IMPORTANTES: Limitaciones, plazos, condiciones especiales\n";
-        $prompt .= "- IDs DE SERVICIOS: Cuando sea relevante para seguimiento (SA-MOVINT-001, EGEGEL-001)\n";
-        $prompt .= "- PLAZOS Y RESTRICCIONES: Mencionar tiempos de respuesta (24 horas, 48 horas, 10 días hábiles)\n";
-        $prompt .= "- Si falta información, dilo claramente en lugar de inventar\n";
-        $prompt .= "- MEJOR RESPUESTA PRECISA Y CÁLIDA que VAGA E INVENTADA\n\n";
 
         return $prompt;
     }
@@ -640,47 +378,175 @@ class OllamaService
         // PRIMERA PASADA: Eliminar secciones completas problemáticas
         $response = preg_replace('/ANÁLISIS DEL CONTEXTO.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
         $response = preg_replace('/EXTRACCIÓN DE DATOS.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
-        $response = preg_replace('/CONTACTO.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
         $response = preg_replace('/PASOS NUMERADOS.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
         $response = preg_replace('/RESTRICCIONES IMPORTANTES.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
-        $response = preg_replace('/PLATAFORMAS PRECISAS.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
-        $response = preg_replace('/ID DE SERVICIOS.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
-        $response = preg_replace('/PLAZOS Y RESTRICCIONES.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
         $response = preg_replace('/MEJOR RESPUESTA PRECISA Y CÁLIDA.*?(?=\n\n|\n[A-Z]|\n$|$)/s', '', $response);
 
-        // SEGUNDA PASADA: Eliminar headers de cualquier tipo
-        $response = preg_replace('/^[A-Z][A-Z\s]+$/m', '', $response); // Headers en mayúsculas
-        $response = preg_replace('/#{1,6}\s*(.+)$/m', '$1', $response); // Headers markdown
-        $response = preg_replace('/^\*\*([A-Z\s]+)\*\*$/m', '', $response); // Headers en negritas
+        // SEGUNDA PASADA: Optimizar enlaces markdown
+        $response = $this->optimizeMarkdownLinks($response);
 
-        // TERCERA PASADA: Eliminar listas estructuradas
-        $response = preg_replace('/^(Categoria|Modalidad|Usuarios|Dependencia|Estado|Costo):\s*.*$/m', '', $response);
-        $response = preg_replace('/^\*\*([^*]+)\*\*:\s*/m', '', $response);
+        // TERCERA PASADA: Optimizar headers - mantener solo los útiles
+        $response = preg_replace('/^[A-Z][A-Z\s]+$/m', '', $response); // Headers en mayúsculas técnicos
+        $response = preg_replace('/#{4,6}\s*(.+)$/m', '### $1', $response); // Normalizar headers a h3
+        $response = preg_replace('/^\*\*([A-Z\s]{20,})\*\*$/m', '', $response); // Headers largos en negritas
 
-        // CUARTA PASADA: Eliminar cualquier markdown restante
-        $response = preg_replace('/\*\*(.+?)\*\*/', '$1', $response);
-        $response = preg_replace('/^\s*[-*•]\s+/m', '', $response);
+        // CUARTA PASADA: Limpiar campos técnicos pero mantener información útil
+        $response = preg_replace('/^\*\*(Categoria|Subcategoria|Estado):\*\*\s*.*$/m', '', $response);
+        $response = preg_replace('/^\*\*(Modalidad|Usuarios|Dependencia):\*\*\s*/m', '**$1:** ', $response);
 
-        // QUINTA PASADA: Limpiar líneas vacías y espacios
+        // QUINTA PASADA: Optimizar listas - mantener estructura pero limpiar
+        $response = $this->optimizeMarkdownLists($response);
+
+        // SEXTA PASADA: Eliminar múltiples cierres empáticos
+        $response = $this->removeRedundantClosings($response);
+
+        // SÉPTIMA PASADA: Limpieza AGRESIVA de cierres múltiples
+        $response = $this->aggressiveClosingCleanup($response);
+
+        // OCTAVA PASADA: Limpiar líneas vacías excesivas
         $response = preg_replace('/^\s*$/m', '', $response);
         $response = preg_replace('/\n{3,}/', "\n\n", $response);
-        $response = preg_replace('/\n{2,}/', "\n\n", $response);
 
-        // SEXTA PASADA: Verificar si hay contenido útil después de limpieza
+        // OCTAVA PASADA: Verificar contenido útil
         $cleanResponse = trim($response);
 
-        // Si la limpieza eliminó demasiado contenido, es probable que el modelo haya generado formato estructurado
-        // En este caso, vamos a intentar usar el contexto original para generar una respuesta más simple
         if (strlen($cleanResponse) < 50) {
-            return "¡Hola! 🐯 Te ayudo con mucho gusto.\n\nSobre tu consulta, no tengo información específica en mi base de datos en este momento.\n\nTe sugiero contactar directamente:\n📞 311-211-8800 (información general UAN)\n🌐 www.uan.edu.mx\n\n¿Hay algo más en lo que pueda apoyarte? 🐾";
+            return "¡Hola! 🐯 Te ayudo con mucho gusto.\n\nSobre tu consulta, no tengo información específica en mi base de datos en este momento.\n\n**Contacto general:** 📞 311-211-8800\n🌐 www.uan.edu.mx\n\n¿Necesitas algo más? Estoy aquí para apoyarte 🐾";
         }
 
-        // Asegurar que termine con cierre empático
-        if (!preg_match('/🐾|🐯/', $cleanResponse)) {
-            $cleanResponse .= "\n\n¿Necesitas algo más? Estoy aquí para apoyarte 🐾";
-        }
+        // NOVENA PASADA: Asegurar un solo cierre empático apropiado
+        $cleanResponse = $this->ensureSingleEmpathicClosing($cleanResponse);
 
         return $cleanResponse;
+    }
+
+    /**
+     * Optimizar enlaces markdown para mejor experiencia
+     */
+    private function optimizeMarkdownLinks(string $text): string
+    {
+        // Convertir [texto](url) a formato optimizado
+        $text = preg_replace_callback('/\[([^\]]+)\]\(([^\)]+)\)/', function($matches) {
+            $linkText = $matches[1];
+            $url = $matches[2];
+            
+            // Si son URLs simples como gmail.com, mostrar solo el dominio
+            if (preg_match('/^https?:\/\/(www\.)?([^\/]+)\/?\??.*$/', $url, $urlMatches)) {
+                $domain = $urlMatches[2];
+                if (strtolower($linkText) === strtolower($domain) || 
+                    strtolower($linkText) === 'www.' . strtolower($domain)) {
+                    return $domain;
+                }
+                return "[$linkText]($url)"; // Mantener markdown para enlaces complejos
+            }
+            
+            return "[$linkText]($url)";
+        }, $text);
+        
+        return $text;
+    }
+
+    /**
+     * Optimizar listas markdown manteniendo estructura útil
+     */
+    private function optimizeMarkdownLists(string $text): string
+    {
+        $lines = explode("\n", $text);
+        $processedLines = [];
+        $inList = false;
+
+        foreach ($lines as $line) {
+            $trimmedLine = trim($line);
+            
+            // Mantener listas útiles pero limpiar formato
+            if (preg_match('/^[-*•]\s+(.+)$/', $trimmedLine, $matches)) {
+                $listItem = $matches[1];
+                // Solo mantener listas con contenido sustancial
+                if (strlen($listItem) > 10 && !preg_match('/^(Categoria|Estado|Modalidad):\s*/', $listItem)) {
+                    $processedLines[] = "- " . $listItem;
+                    $inList = true;
+                }
+            } else {
+                $processedLines[] = $line;
+                $inList = false;
+            }
+        }
+
+        return implode("\n", $processedLines);
+    }
+
+    /**
+     * Eliminar múltiples cierres empáticos redundantes
+     */
+    private function removeRedundantClosings(string $text): string
+    {
+        // Patrones específicos de cierre redundante (más agresivos)
+        $redundantPatterns = [
+            '/¿Necesitas algo más\?\s*Estoy aquí para apoyarte[^\n]*🐾[^\n]*\n*/',
+            '/¿Hay algo más en lo que pueda ayudarte\?[^\n]*\n*/',
+            '/¿El problema persiste[^\n]*\?[^\n]*\n*/',
+            '/¿Quieres que te ayude[^\n]*\?[^\n]*/',
+            '/¿Necesitas ayuda con algo más\?[^\n]*\n*/'
+        ];
+
+        // Eliminar todos los patrones redundantes
+        foreach ($redundantPatterns as $pattern) {
+            $text = preg_replace($pattern, '', $text);
+        }
+
+        // Eliminar múltiples 🐾 consecutivos
+        $text = preg_replace('/🐾\s*🐾+/', '🐾', $text);
+        
+        // Eliminar líneas que solo tienen espacios después de limpiar
+        $text = preg_replace('/^\s*$/m', '', $text);
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+
+        return trim($text);
+    }
+
+    /**
+     * Limpieza AGRESIVA de cierres múltiples
+     */
+    private function aggressiveClosingCleanup(string $text): string
+    {
+        // Identificar y conservar solo el último párrafo con contenido útil
+        $paragraphs = explode("\n\n", $text);
+        $cleanParagraphs = [];
+        $foundMainContent = false;
+
+        foreach ($paragraphs as $paragraph) {
+            $cleanPara = trim($paragraph);
+            
+            // Saltar párrafos que son solo cierres empáticos
+            if (preg_match('/^¿(Necesitas|Hay algo|El problema|Quieres)/', $cleanPara) && 
+                strlen($cleanPara) < 100) {
+                continue;
+            }
+            
+            // Mantener párrafos con contenido sustancial
+            if (strlen($cleanPara) > 20 && !preg_match('/^¿.*\?$/', $cleanPara)) {
+                $cleanParagraphs[] = $cleanPara;
+                $foundMainContent = true;
+            }
+        }
+
+        // Ensamblar respuesta limpia
+        $cleanText = implode("\n\n", $cleanParagraphs);
+        
+        return $cleanText;
+    }
+
+    /**
+     * Asegurar un solo cierre empático apropiado
+     */
+    private function ensureSingleEmpathicClosing(string $text): string
+    {
+        // Verificar si ya tiene un cierre empático
+        if (preg_match('/🐾|🐯/', $text)) {
+            return $text;
+        }
+
+        return $text . "\n\n¿Necesitas algo más? Estoy aquí para apoyarte 🐾";
     }
 
     // === MÉTODOS EXISTENTES SIN CAMBIOS ===

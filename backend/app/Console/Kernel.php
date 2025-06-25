@@ -14,28 +14,12 @@ class Kernel extends ConsoleKernel
      * @return void
      */
     protected $commands = [
-        // Comandos existentes
+        // Comandos activos
         Commands\DiagnoseOllama::class,
-        Commands\ScrapeWebContent::class,
-
-        // Comandos para PiiDA
-        Commands\ManagePiidaContent::class,
-        Commands\DiagnosePiidaSystem::class,
-
-        // Comandos para embeddings
-        Commands\IndexKnowledgeBase::class,
         Commands\TestSemanticSearch::class,
-
         Commands\DebugQdrant::class,
-        Commands\ImportMarkdown::class,
-
-        // Comandos para Notion
         Commands\SyncNotionContent::class,
-
-        // Otros comandos
-        // Commands\UpdateEmbeddings::class,
-        // Commands\ClearCache::class,
-        // Commands\StatusCheck::class,
+        Commands\CleanupVectorDbCommand::class,
     ];
 
     protected function schedule(Schedule $schedule)
@@ -64,13 +48,32 @@ class Kernel extends ConsoleKernel
             ->everyThirtyMinutes()
             ->appendOutputTo(storage_path('logs/health-check.log'));
 
-        // Sincronización automática de Notion cada 4 horas (si está configurado)
+        // Sincronización automática de Notion (si está configurado)
         if (config('services.notion.sync_enabled')) {
-            $schedule->command('ociel:sync-notion --update-existing')
-                ->everyFourHours()
+            // Sincronización completa cada madrugada
+            $schedule->command('ociel:sync-notion --all')
+                ->dailyAt('03:00')
                 ->withoutOverlapping()
-                ->runInBackground()
                 ->appendOutputTo(storage_path('logs/notion-sync.log'));
+            
+            // Sincronización de Finanzas cada 4 horas (más frecuente por ser crítico)
+            $schedule->command('ociel:sync-notion finanzas')
+                ->everyFourHours()
+                ->withoutOverlapping();
+            
+            // Sincronización de Académica cada 6 horas
+            $schedule->command('ociel:sync-notion academica')
+                ->everySixHours()
+                ->withoutOverlapping();
+            
+            // Sincronización de RRHH y Tecnológicos una vez al día
+            $schedule->command('ociel:sync-notion recursos_humanos')
+                ->dailyAt('12:00')
+                ->withoutOverlapping();
+                
+            $schedule->command('ociel:sync-notion servicios_tecnologicos')
+                ->dailyAt('18:00')
+                ->withoutOverlapping();
         }
 
         // Limpiar cache viejo cada día

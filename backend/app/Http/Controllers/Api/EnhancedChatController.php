@@ -4,9 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\OllamaService;
-use App\Services\KnowledgeBaseService;
 use App\Services\EnhancedPromptService;
-use App\Services\GhostIntegrationService;
 use App\Services\EnhancedQdrantVectorService;
 use App\Services\GeminiService;
 use Illuminate\Http\Request;
@@ -20,24 +18,18 @@ use Illuminate\Support\Str;
 class EnhancedChatController extends Controller
 {
     private $ollamaService;
-    private $knowledgeService;
     private $promptService;
-    private $ghostService;
     private $qdrantService;
     private $geminiService;
 
     public function __construct(
         OllamaService $ollamaService,
-        KnowledgeBaseService $knowledgeService,
         EnhancedPromptService $promptService,
-        GhostIntegrationService $ghostService,
         EnhancedQdrantVectorService $qdrantService,
         GeminiService $geminiService
     ) {
         $this->ollamaService = $ollamaService;
-        $this->knowledgeService = $knowledgeService;
         $this->promptService = $promptService;
-        $this->ghostService = $ghostService;
         $this->qdrantService = $qdrantService;
         $this->geminiService = $geminiService;
     }
@@ -88,20 +80,24 @@ class EnhancedChatController extends Controller
                 return $this->rateLimitResponse($requestId);
             }
 
-            // 2. BÚSQUEDA INTELIGENTE CON CACHE
+            // 2. RECUPERAR HISTORIAL DE CONVERSACIÓN
+            $conversationHistory = $this->getConversationHistory($sessionId);
+            
+            // 3. BÚSQUEDA INTELIGENTE CON CACHE
             $context = $this->getIntelligentContext($message, $userType, $department);
 
-            // 3. DETECCIÓN DE INTENCIÓN Y SENTIMIENTO
+            // 4. DETECCIÓN DE INTENCIÓN Y SENTIMIENTO
             $queryAnalysis = $this->analyzeQuery($message, $userType);
 
-            // 4. GENERACIÓN DE RESPUESTA CON ALTA CONFIANZA
+            // 5. GENERACIÓN DE RESPUESTA CON ALTA CONFIANZA Y CONTEXTO CONVERSACIONAL
             $response = $this->generateHighConfidenceResponse(
                 $message,
                 $userType,
                 $department,
                 $context,
                 $queryAnalysis,
-                $contextPreference
+                $contextPreference,
+                $conversationHistory
             );
 
             // 5. VALIDACIÓN DE CALIDAD DE RESPUESTA
@@ -132,7 +128,10 @@ class EnhancedChatController extends Controller
                 'escalation_reasons' => $escalationDecision['reasons']
             ]);
 
-            // 8. RESPUESTA SIMPLIFICADA
+            // 8. GUARDAR MENSAJE EN HISTORIAL DE CONVERSACIÓN
+            $this->saveToConversationHistory($sessionId, $message, $response['response'] ?? '', $userType);
+
+            // 9. RESPUESTA SIMPLIFICADA
             return response()->json([
                 'success' => true,
                 'response' => $response['response'] ?? '',
@@ -148,9 +147,11 @@ class EnhancedChatController extends Controller
     /**
      * Verificar rate limiting inteligente
      */
-    private function checkRateLimit(string $ip, string $sessionId): bool
+    private function checkRateLimit(?string $ip, string $sessionId): bool
     {
-        $ipKey = "rate_limit_ip_{$ip}";
+        // Manear IP nula (testing/local)
+        $safeIp = $ip ?: 'localhost';
+        $ipKey = "rate_limit_ip_{$safeIp}";
         $sessionKey = "rate_limit_session_{$sessionId}";
 
         // Límites por IP: 60 requests por minuto
@@ -525,7 +526,8 @@ Si no encuentro información específica sobre tu consulta, es posible que el se
         ?string $department,
         array $context,
         array $queryAnalysis,
-        string $contextPreference
+        string $contextPreference,
+        array $conversationHistory = []
     ): array {
 
         // Verificar disponibilidad de IA
@@ -534,12 +536,13 @@ Si no encuentro información específica sobre tu consulta, es posible que el se
         }
 
         try {
-            // Usar servicio de prompts mejorados
+            // Usar servicio de prompts mejorados con historial conversacional
             $response = $this->promptService->generateProfessionalResponse(
                 $message,
                 $userType,
                 $department,
-                $context
+                $context,
+                $conversationHistory
             );
 
             // Si la confianza es baja, intentar con modelo alternativo
@@ -1345,7 +1348,6 @@ Si no encuentro información específica sobre tu consulta, es posible que el se
                 'ollama' => $this->ollamaService->isHealthy(),
                 'gemini' => $this->geminiService->isHealthy(),
                 'qdrant' => $this->qdrantService->isHealthy(),
-                'ghost_cms' => $this->ghostService->healthCheck()['status'] === 'ok',
                 'cache' => $this->checkCacheHealth()
             ],
             'metrics' => [
@@ -1685,5 +1687,51 @@ Si no encuentro información específica sobre tu consulta, es posible que el se
 
         // Marcar para revisión humana
         Cache::put("low_rating_review_{$feedback['session_id']}", $feedback, 86400);
+    }
+
+    /**
+     * Recuperar historial de conversación para una sesión
+     */
+    private function getConversationHistory(string $sessionId): array
+    {
+        $cacheKey = "conversation_history_{$sessionId}";
+        $history = Cache::get($cacheKey, []);
+        
+        Log::debug('Retrieved conversation history', [
+            'session_id' => $sessionId,
+            'message_count' => count($history)
+        ]);
+        
+        return $history;
+    }
+
+    /**
+     * Guardar mensaje en el historial de conversación
+     */
+    private function saveToConversationHistory(string $sessionId, string $userMessage, string $botResponse, string $userType): void
+    {
+        $cacheKey = "conversation_history_{$sessionId}";
+        $history = Cache::get($cacheKey, []);
+        
+        // Agregar nuevo intercambio
+        $history[] = [
+            'user_message' => $userMessage,
+            'bot_response' => $botResponse,
+            'timestamp' => now()->toISOString(),
+            'user_type' => $userType
+        ];
+        
+        // Limitar historial a últimos 10 intercambios para mantener contexto útil sin sobrecarga
+        if (count($history) > 10) {
+            $history = array_slice($history, -10);
+        }
+        
+        // Guardar en cache por 1 hora
+        Cache::put($cacheKey, $history, 3600);
+        
+        Log::debug('Saved to conversation history', [
+            'session_id' => $sessionId,
+            'total_messages' => count($history)
+        ]);
     }
 }
